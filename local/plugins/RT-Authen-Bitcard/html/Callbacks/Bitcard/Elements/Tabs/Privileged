@@ -1,0 +1,14 @@
+<%INIT>
+return unless $session{'BitcardUser'};
+
+require RT::Authen::Bitcard;
+my $account_url = RT::Authen::Bitcard->Handler->account_url( r => RT->Config->Get("WebURL") );
+
+if (my $logout = Menu->child("preferences")->child("logout")) {
+    $logout->add_before(
+        "manage_bitcard",
+        title   => loc("Manage Bitcard account"),
+        path    => $account_url,
+    );
+}
+</%INIT>

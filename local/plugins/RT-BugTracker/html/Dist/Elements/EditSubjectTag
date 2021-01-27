@@ -1,0 +1,28 @@
+<label class="dist-subjecttag"><% loc('Subject tag in addition to default') %>
+(<% loc('be reasonable') %>, <code><% RT->Config->Get("DistributionSubjectTagAllowed") %></code> is allowed, <code>rt.cpan.org</code> will be prepended):
+<input size="120" name="Queue-<% $Queue->id %>-SubjectTag" value="<% $value || '' %>" /></label><br />
+<%ARGS>
+$Queue => undef
+</%ARGS>
+<%INIT>
+my $value = $Queue->SubjectTag;
+</%INIT>
+
+<%METHOD Process>
+<%ARGS>
+$Queue => undef
+</%ARGS>
+<%INIT>
+return () unless exists $ARGS{'Queue-'. $Queue->id .'-SubjectTag'};
+my $value = $ARGS{'Queue-'. $Queue->id .'-SubjectTag'};
+
+return () if ($Queue->SubjectTag || '') eq ($value || '');
+
+my $QueueAsSystem = RT::Queue->new( RT->SystemUser );
+$QueueAsSystem->Load($Queue->id);
+return () if not $QueueAsSystem->id == $Queue->id;
+
+my ($status, $msg) = $QueueAsSystem->SetSubjectTag( $value );
+return $msg;
+</%INIT>
+</%METHOD>

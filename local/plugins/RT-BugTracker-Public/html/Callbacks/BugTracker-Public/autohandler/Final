@@ -1,0 +1,6 @@
+<%init>
+# Rather than rely on the HTTP referer and then have to sanitize it, just keep
+# track of the referring page ourselves.
+$session{'LastPublicPage'} = RT::Interface::Web::IntuitNextPage()
+    if RT::BugTracker::Public->IsPublicUser;
+</%init>

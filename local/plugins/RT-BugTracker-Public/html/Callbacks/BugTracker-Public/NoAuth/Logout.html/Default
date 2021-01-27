@@ -1,0 +1,17 @@
+<%args>
+$URL => undef
+</%args>
+<%init>
+return unless $URL and RT::BugTracker::Public->IsPublicUser
+          and $session{"LastPublicPage"};
+
+# Because we don't have a callback that is both after the session delete and
+# can modify the login URL, we need to stash the next page data pre-delete, set
+# the next page hash, and then resurrect it after the session is deleted.
+$m->notes->{NextHash} = RT::Interface::Web::SetNextPage($DECODED_ARGS, $session{"LastPublicPage"});
+$m->notes->{NextPage} = RT::Interface::Web::FetchNextPage($m->notes->{NextHash});
+
+$$URL = RT->Config->Get("WebPath")
+      . "/NoAuth/Login.html?next="
+      . $m->notes->{NextHash};
+</%init>

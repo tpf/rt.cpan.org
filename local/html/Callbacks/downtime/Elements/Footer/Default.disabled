@@ -1,0 +1,19 @@
+<style>
+#site-notice {
+    position: absolute;
+    top: 0.8em;
+    left: 12em;
+    font-weight: bold;
+    color: green;
+}
+
+#site-notice a {
+    color: green;
+    text-decoration: underline;
+}
+</style>
+<div id="site-notice">
+  Notice: rt.cpan.org will be unavailable on
+  <a target="_top" href="http://www.timeanddate.com/worldclock/fixedtime.html?iso=20130221T04&ah=1">Thursday the 21st from approx. 04:00&mdash;05:00 UTC</a>
+  for site maintainence.
+</div>

@@ -1,0 +1,30 @@
+<%init>
+use utf8;
+
+if (my $actions = PageMenu->child("actions")) {
+    $actions->delete("comment");
+    $actions->delete("extract-article");
+}
+
+Menu->child("search")->title(loc("Search Tickets"));
+Menu->child("tools")->delete("articles") unless $session{CurrentUser}->HasRight(
+    Object  => RT->System,
+    Right   => 'ShowArticle',
+);
+
+my $about = Menu->child("preferences")->add_before(
+    "about",
+    title   => loc("About rt.cpan.org"),
+    path    => "/NoAuth/RT/CPAN/About.html",
+);
+$about->child(
+    "usage",
+    title   => loc("How do I…?"),
+    path    => "/NoAuth/RT/CPAN/Usage.html",
+);
+$about->child(
+    "about",
+    title   => loc("About"),
+    path    => "/NoAuth/RT/CPAN/About.html",
+);
+</%init>

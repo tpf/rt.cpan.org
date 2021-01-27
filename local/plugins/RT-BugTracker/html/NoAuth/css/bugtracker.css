@@ -1,0 +1,16 @@
+#external_bugtracker {
+    width: 50%;
+    border: 1px solid #666;
+    background: #ffffaa 8px 15px no-repeat;
+    padding: 0px 10px 10px 60px;
+    margin: 20px auto;
+    min-height: 30px;
+    -webkit-box-shadow: inset 2px 2px 2px 2px #999;
+    box-shadow: inset 2px 2px 2px 2px #999;
+    -webkit-border-radius: 10px;
+    border-radius: 10px;
+}
+
+.dist-notes textarea, .dist-addresses textarea, .dist-subjecttag input {
+    display: block;
+}

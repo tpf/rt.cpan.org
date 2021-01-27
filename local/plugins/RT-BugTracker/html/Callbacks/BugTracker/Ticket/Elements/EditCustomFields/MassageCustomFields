@@ -1,0 +1,10 @@
+<%args>
+$CustomFields
+$Named => []
+</%args>
+<%init>
+return unless @$Named;
+
+$CustomFields->Limit( FIELD => 'Name', VALUE => $_, SUBCLAUSE => 'names', ENTRYAGGREGRATOR => 'OR' )
+    for @$Named;
+</%init>

@@ -1,0 +1,272 @@
+%# BEGIN BPS TAGGED BLOCK {{{
+%#
+%# COPYRIGHT:
+%#
+%# This software is Copyright (c) 1996-2013 Best Practical Solutions, LLC
+%#                                          <sales@bestpractical.com>
+%#
+%# (Except where explicitly superseded by other copyright notices)
+%#
+%#
+%# LICENSE:
+%#
+%# This work is made available to you under the terms of Version 2 of
+%# the GNU General Public License. A copy of that license should have
+%# been provided with this software, but in any event can be snarfed
+%# from www.gnu.org.
+%#
+%# This work is distributed in the hope that it will be useful, but
+%# WITHOUT ANY WARRANTY; without even the implied warranty of
+%# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+%# General Public License for more details.
+%#
+%# You should have received a copy of the GNU General Public License
+%# along with this program; if not, write to the Free Software
+%# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+%# 02110-1301 or visit their web page on the internet at
+%# http://www.gnu.org/licenses/old-licenses/gpl-2.0.html.
+%#
+%#
+%# CONTRIBUTION SUBMISSION POLICY:
+%#
+%# (The following paragraph is not intended to limit the rights granted
+%# to you to modify and distribute this software under the terms of
+%# the GNU General Public License and is only of importance to you if
+%# you choose to contribute your changes and enhancements to the
+%# community by submitting them to Best Practical Solutions, LLC.)
+%#
+%# By intentionally submitting any modifications, corrections or
+%# derivatives to this work, or any other work intended for use with
+%# Request Tracker, to Best Practical Solutions, LLC, you confirm that
+%# you are the copyright holder for those contributions and you grant
+%# Best Practical Solutions,  LLC a nonexclusive, worldwide, irrevocable,
+%# royalty-free, perpetual, license to use, copy, create derivative
+%# works based on those contributions, and sublicense and distribute
+%# those contributions and any derivatives thereof.
+%#
+%# END BPS TAGGED BLOCK }}}
+<%init>
+require  Module::Versions::Report;
+my $title = loc('System Configuration');
+unless ($session{'CurrentUser'}->HasRight( Object=> $RT::System, Right => 'SuperUser')) {
+ Abort(loc('This feature is only available to system administrators'));
+}
+</%init>
+<& /Admin/Elements/Header, Title => $title &>
+<& /Elements/Tabs &>
+
+<&|/Widgets/TitleBox, title => loc("RT Configuration") &>
+<table border="0" cellspacing="0" cellpadding="5" width="100%" class="collection">
+<tr class="collection-as-table">
+<th class="collection-as-table"><&|/l&>Option</&></th>
+<th class="collection-as-table"><&|/l&>Value</&></th>
+<th class="collection-as-table"><&|/l&>Source</&></th>
+</tr>
+<%PERL>
+my $index_conf;
+foreach my $key ( RT->Config->Options( Overridable => undef, Sorted => 0 ) ) {
+    my $val = RT->Config->GetObfuscated( $key );
+    next unless defined $val;
+
+    my $meta = RT->Config->Meta( $key );
+    my $description = '';
+    if ( $meta->{'Source'}{'Extension'} && $meta->{'Source'}{'SiteConfig'} ) {
+        $description = loc("[_1] site config", $meta->{'Source'}{'Extension'});
+    }
+    elsif ( $meta->{'Source'}{'Extension'} ) {
+        $description = loc("[_1] core config", $meta->{'Source'}{'Extension'});
+    }
+    elsif ( $meta->{'Source'}{'SiteConfig'} ) {
+        $description = loc("site config");
+    }
+    else {
+        $description = loc("core config");
+    }
+    $index_conf++;
+</%PERL>
+<tr class="<% $index_conf%2 ? 'oddline' : 'evenline'%>">
+<td class="collection-as-table"><% $key %></td>
+<td class="collection-as-table">
+% if ( $key =~ /Password(?!Length)/i ) { 
+<em><% loc('Password not printed' ) %></em>\
+% } else {
+<% stringify($val) |n %>\
+% }
+</td>
+<td class="collection-as-table" style="white-space: nowrap">
+% if ( $meta->{'Source'}{'SiteConfig'} ) {
+<span style="font-weight: bold"><% $description %></span>
+% } else {
+<% $description %>
+% }
+</td>
+</tr>
+% }
+</table>
+</&>
+<table width="100%">
+    <tr>
+        <td valign="top" width="60%" class="boxcontainer">
+<&|/Widgets/TitleBox, title=> loc("RT core variables") &>
+<table border="0" cellspacing="0" cellpadding="5" width="100%" class="collection">
+<tr class="collection-as-table">
+<th class="collection-as-table"><&|/l&>Variable</&></th>
+<th class="collection-as-table"><&|/l&>Value</&></th>
+</tr>
+<%PERL>
+{ no strict qw/refs/;
+my %config_opt = map { $_ => 1 } RT->Config->Options( Overridable => undef );
+my $index_var;
+foreach my $key ( sort keys %{*RT::} ) {
+    next if !${'RT::'.$key} || ref ${'RT::'.$key} || $config_opt{ $key };
+    $index_var++;
+</%PERL>
+<tr class="collection-as-table <% $index_var%2 ? 'oddline' : 'evenline'%>">
+<td class="collection-as-table">RT::<% $key %></td>
+<td class="collection-as-table">
+% if ( $key =~ /Password(?!Length)/i ) { 
+<em><% loc('Password not printed' ) %></em>\
+% } else {
+<% ${'RT::'.$key} %>
+% }
+</td>
+</tr>
+% }
+% }
+</table>
+</&>
+
+<&|/Widgets/TitleBox, title => loc("RT Size") &>
+<table border="0" cellspacing="0" cellpadding="5" width="100%" class="collection">
+<tr class="collection-as-table">
+<th class="collection-as-table"><&|/l&>Object</&></th>
+<th class="collection-as-table"><&|/l&>Size</&></th>
+</tr>
+<%PERL>
+my ($index_size, $user_count, $privileged_count);
+for my $type (qw/Tickets Queues Transactions Groups PrivilegedUsers UnprivilegedUsers/) {
+    my $count;
+    my $class = 'RT::' . $type;
+    $class =~ s/Privileged|Unprivileged//;
+    my $collection = $class->new(RT->SystemUser);
+    $collection->UnLimit;
+    if ($type =~ /PrivilegedUsers/) {
+        $user_count = $collection->CountAll;
+        $collection->LimitToPrivileged;
+        $count = $privileged_count = $collection->CountAll;
+    } elsif ($type =~ /UnprivilegedUsers/) {
+        $count = $user_count - $privileged_count;
+    } else {
+        $count = $collection->CountAll;
+    }
+    $index_size++;
+</%PERL>
+<tr class="<% $index_size%2 ? 'oddline' : 'evenline'%>">
+<td class="collection-as-table"><% $type %></td>
+<td class="collection-as-table"><% $count %></td>
+</tr>
+% }
+</table>
+</&>
+</td>
+<td valign="top" class="boxcontainer">
+
+<&|/Widgets/TitleBox, title => loc("Mason template search order") &>
+<ol>
+% foreach my $path ( RT::Interface::Web->ComponentRoots ) {
+<li><% $path %></li>
+% }
+</ol>
+</&>
+
+<&|/Widgets/TitleBox, title => loc("Perl library search order") &>
+<ol>
+% foreach my $inc (@INC) {
+<li><% $inc %></li>
+% }
+</ol>
+</&>
+
+</td>
+</table>
+
+<&|/Widgets/TitleBox, title => loc("Global Attributes") &>
+<table border="0" cellspacing="0" cellpadding="5" width="100%" class="collection">
+<tr class="collection-as-table">
+<th class="collection-as-table"><&|/l&>Name</&></th>
+<th class="collection-as-table"><&|/l&>Value</&></th>
+</tr>
+% my $attrs = $RT::System->Attributes;
+% my $index_size = 0;
+% while ( my $attr = $attrs->Next ) {
+<tr class="<% $index_size%2 ? 'oddline' : 'evenline'%>">
+% if ($attr->Name eq 'UserLogo') {
+%   my $content = $attr->Content;
+%   $content->{data} = defined $content->{data} ? 'DATA' : 'undef'
+%       if exists $content->{data};
+<td><% $attr->Name %></td><td><% stringify($content) |n %></td>
+% } else {
+<td><% $attr->Name %></td><td><% stringify($attr->Content) |n %></td>
+% }
+</tr>
+% $index_size++;
+% }
+</table>
+</&>
+
+<&|/Widgets/TitleBox, title => loc("Loaded perl modules")&>
+<table border="0" cellspacing="0" cellpadding="5" width="100%" class="collection">
+<tr class="collection-as-table">
+<th class="collection-as-table"><&|/l&>Module</&></th>
+<th class="collection-as-table"><&|/l&>Version</&></th>
+<th class="collection-as-table"><&|/l&>Source</&></th>
+
+
+<%perl>
+my $i = 0;
+my $report = Module::Versions::Report::report();
+my @report = grep /v\d/, split("\n",$report);
+shift @report; # throw away the perl version
+my ($ver, $source, $distfile);
+foreach my $item (@report) {
+if ($item =~ /^\s*(.*?)\s*v(\S+);/) {
+    $item = $1;
+    $ver = $2;
+    $distfile = $item.".pm";
+    $distfile =~ s|::|/|g;
+}
+</%perl>
+<tr class="<% $i++ %2 ? 'oddline' : 'evenline'%>">
+<td class="collection-as-table"><% $item %></td>
+    <td class="collection-as-table">
+        <%$ver%>
+    </td>
+    <td class="collection-as-table">
+        <% $INC{$distfile} || '' %>
+    </td>
+</tr>
+% }
+</table>
+</&>
+
+<&|/Widgets/TitleBox, title => loc("Perl configuration") &>
+% require Config;
+<pre>
+<% Config::myconfig() %>
+</pre>
+</&>
+
+<%INIT>
+use Data::Dumper;
+local $Data::Dumper::Terse = 1;
+local $Data::Dumper::Indent = 2;
+
+sub stringify {
+    my $value = shift;
+    my $output = Dumper $value;
+    RT::Interface::Web::EscapeUTF8(\$output);
+    $output =~ s/ /&nbsp;/g;
+    $output =~ s!\n!<br />!g;
+    return $output;
+}
+</%INIT>

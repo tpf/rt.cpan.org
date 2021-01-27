@@ -1,0 +1,67 @@
+<p style="margin-top: 0">
+  This site tracks bugs in every distribution released through
+  <a href="http://cpan.org">CPAN</a>.  All bug reports are
+  publicly visible on this site.
+</p>
+
+<h2>Want to...</h2>
+
+<h2>... find a distribution and browse its bugs?</h2>
+<p>
+  This site lets you <a href="<% RT->Config->Get("WebPath") %>/Public/">search
+  for distributions</a> by name or author.  When you've found the
+  distribution you're looking for, you can browse known bugs and
+  report new bugs.
+</p>
+
+<h2>... report a bug in a module using web-interface?</h2>
+<p>
+  Use <a href="https://www.bitcard.org/">Bitcard</a> or OpenID account.
+  Module authors can use PAUSE credentials.
+</p>
+
+<h2>... report a bug in a module using email?</h2>
+<p>
+  To submit a bug report for a given distribution by email, send mail
+  to <strong>bug-&lt;distribution-name&gt;@rt.cpan.org</strong>, where
+  "&lt;distribution-name&gt;" is something like DBIx-SearchBuilder or
+  Class-DBI or Acme-Current-Forever. Use
+  <a href="<% RT->Config->Get("WebPath") %>/Public/">search</a> to find name of
+  a distribution.  Any mail you send will be publicly visible on the web.
+</p>
+
+<h2>... reply to an existing bug via email?</h2>
+<p>
+  Send email to the distribution email address (see above) with a tag like the
+  following somewhere in the Subject: <strong>[rt.cpan.org #<em>NNNNN</em>]</strong>.
+  Replace <em>NNNNN</em> with the existing bug number.
+</p>
+
+<h2>... report a bug in perl itself?</h2>
+<p>
+  To report bugs in perl itself, you're best off using the command-line
+  'perlbug' tool or <a href="http://rt.perl.org">rt.perl.org</a>.
+</p>
+
+<h2>... manage bugs in your distributions?</h2>
+<p>
+  To work with bugs, every module author with a
+  <a href="http://pause.perl.org">PAUSE</a> account can log into
+  rt.cpan.org with their PAUSE userid and password. If you can't log in or
+  distributions you maintain aren't listed, please write to
+  rt-cpan-admin@bestpractical.com at your earliest convenience.
+</p>
+
+<h2>... know more about this service?</h2>
+<p>
+  Read <a href="<% RT->Config->Get("WebPath") %>/NoAuth/RT/CPAN/About.html">this document</a>.
+</p>
+
+<p>
+Enjoy,
+</p>
+
+<p class="over-and-out">
+  Jesse Vincent <br />
+  <a href="http://bestpractical.com/">Best Practical Solutions</a>, LLC
+</p>

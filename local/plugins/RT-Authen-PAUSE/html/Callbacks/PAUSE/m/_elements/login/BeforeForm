@@ -1,0 +1,17 @@
+<div id="for-authors">
+<h3><% loc('For CPAN authors') %></h3>
+<p>
+<% loc('You can use the form below to log in with your PAUSE userid and password.') %>
+</p>
+<p>
+<&|/l_unsafe, '<a href="'. RT->Config->Get("WebPath") .'/?NotMobile=1#for-guests">', '</a>' &>If you are not a PAUSE author, you must use the [_1]full-site[_2].  The mobile version of RT is only available to PAUSE authors at this time.</&>
+</p>
+</div>
+<script type="text/javascript">
+jQuery(function() {
+    var authors = document.getElementById("for-authors");
+    var login = document.getElementById("login");
+    authors.parentNode.removeChild(authors);
+    login.insertBefore(authors, login.firstChild);
+});
+</script>

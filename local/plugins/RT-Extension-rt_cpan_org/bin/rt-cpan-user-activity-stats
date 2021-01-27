@@ -1,0 +1,114 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+eval {
+    use RT -init;
+    1;
+} or exit usage();
+
+use IO::Compress::Gzip ();
+use DBI                ();
+use DBD::SQLite        ();
+
+sub usage {
+    print STDERR "\nUsage: perl -I /opt/rt4/local/lib -I/opt/rt4/lib $0 /export/directory\n\n";
+    return 1;
+}
+
+# Takes a parameter of the directory to export the database to
+my $dir = shift @ARGV;
+exit usage() unless $dir;
+die "Export directory '$dir' does not exist" unless -d $dir;
+die "Export directory '$dir' is not writable" unless -w $dir;
+
+# Checks our query files
+my $query_dir = RT::Plugin->new( name => "RT::Extension::rt_cpan_org" )
+                          ->Path("etc/user-activity-queries");
+die "Can't find query directory"
+    unless $query_dir and -d $query_dir;
+
+my $rt = RT->DatabaseHandle->dbh;
+
+# Clear the existing sqlite file
+my $sqlite = "$dir/user-activity-stats.sqlite";
+unlink($sqlite) or die "Failed to remove existing export '$sqlite': $!"
+    if -f $sqlite;
+
+# Connect and create the table
+my $dbh = DBI->connect("DBI:SQLite:$sqlite")
+    or die "Failed to create new export '$sqlite'";
+
+my (%data, @all_fields);
+
+# Run each query file to fill our data structure
+for my $file (sort { lc $a cmp lc $b } <$query_dir/*.sql>) {
+    my $query = do {
+        open my $fh, "<", $file or die "can't open $file: $!";
+        local $/;
+        <$fh>;
+    };
+    $query =~ s/--.*$//mg; # strip sql comments
+    $query =~ s/^\s*$//mg; # strip newlines
+
+    RT->Logger->debug("Running query: \n\n$query\n\n");
+
+    my $sth = $rt->prepare($query);
+    $sth->execute;
+
+    my @fields = grep { $_ ne "username" } @{$sth->{NAME_lc} || []};
+
+    # Add our data
+    while (my $row = $sth->fetchrow_arrayref) {
+        my $user = $data{$row->[0]} ||= [];
+        push @$user, (0) x (@all_fields - @$user); # Fill in any gaps before our fields
+        push @$user, @$row[1..@$row - 1];
+    }
+
+    push @all_fields, @fields;
+
+    # Fill in any gaps after our fields
+    push @$_, (0) x (@all_fields - @$_) for values %data;
+}
+
+# Create the schema
+my @schema = (
+    "username TEXT NOT NULL PRIMARY KEY",
+    map { "$_ INTEGER NOT NULL DEFAULT 0" } @all_fields
+);
+unshift @all_fields, "username";
+
+$dbh->do(<<"END_SQL");
+CREATE TABLE users (
+    @{[join ",\n    ", @schema]}
+);
+END_SQL
+
+# Fill the database
+my $insert = $dbh->prepare("INSERT INTO users VALUES (" . join(",", ("?") x @all_fields) . ")");
+
+$dbh->begin_work;
+my $i = 1;
+while (my ($u, $row) = each %data) {
+    $insert->execute($u, @$row);
+} continue {
+    if ($i++ % 100 == 0) {
+        $dbh->commit;
+        $dbh->begin_work;
+    }
+}
+$dbh->commit;
+
+# Create indexes
+$dbh->do("CREATE INDEX users__$_ on users ($_)")
+    for @all_fields;
+$dbh->disconnect;
+
+# Compress to the final form
+my $gz = "$sqlite.gz";
+unlink $gz or die "Failed to remove existing '$gz' export: $!"
+    if -f $gz;
+IO::Compress::Gzip::gzip( $sqlite => $gz )
+    or die "Failed to create gzip archive '$gz'";
+
+exit;

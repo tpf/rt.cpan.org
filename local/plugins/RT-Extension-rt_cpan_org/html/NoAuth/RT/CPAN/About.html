@@ -1,0 +1,66 @@
+<& /Elements/Header, Title => loc('About rt.cpan.org'), RichText => 0 &>
+% if ($session{CurrentUser} and $session{CurrentUser}->id) {
+<& /Elements/Tabs &>
+% } else {
+<div id="body">
+% }
+
+  <div id="rtcpan-about">
+ 
+    <h2 style="margin-top: 0">What is this all about?</h2>
+    <p>
+      This site tracks bugs in every distribution released through
+      <a href="http://cpan.org">CPAN</a>.
+    </p>
+
+    <p>
+      See the <a href="Usage.html">quick usage guidelines</a> if you want to know how to use this site.  These guidelines are also on the login page.
+    </p>
+
+    <h2>Recommendations (soft rules)</h2>
+    <h3>For reporters</h3>
+
+    <h4>Be polite</h4>
+
+    <h4>Are maintainers required to act on all bugs reported by end users?</h4>
+    <p>No. They are not. Unless you have an outside contractual relationship with
+    a maintainer, you need to assume that they are a volunteer. Telling them they
+    "must" do something is impolite and counterproductive.</p>
+    
+    <h4>Should maintainers accept bug reports against older versions of a module?</h4>
+    <p>In general, we discourage bug reports against older versions of modules other
+    than for historical reporting purposes (i.e. resolved immediately upon report with a
+    note that it's been tested and found to work in the current version.)</p>
+    <p>If a bug exists in the current CPAN version of a module, please do report the bug.</p>
+    
+    <h3>For authors and maintainers</h3>
+
+    <h4>Be polite</h4>
+
+    <h4>Can a module have its own bug tracker?</h4>
+    <p>Sure it can, but that does not disable the module's RT queue and users can still
+    create tickets on rt.cpan.org.</p>
+
+    <h2>What is used to power this service?</h2>
+    <p>All parts used to build this service are open source software.
+    The core is <a href="http://www.bestpractical.com/rt/">Request Tracker</a>
+    from Best Practical Solutions. Everything else is either an extension for this
+    site or a module from the CPAN.</p>
+
+    <p>rt.cpan.org has some customizations which tie it to a particular RT version; at this
+    moment (March 2013) it's RT 4.0.</p>
+
+    <p>You can explore the source code by checking out the repository:<br />
+    <pre>    git clone git://github.com/bestpractical/rt-extension-rt_cpan_org.git</pre><br />
+    or by going to its web page, at
+    <a href="http://github.com/bestpractical/rt-extension-rt_cpan_org">RT-Extension-rt_cpan_org</a>.
+    There is <a href="http://github.com/bestpractical/rt-extension-rt_cpan_org/blob/master/bin/pull-live">a script in the bin directory</a>
+    of the extension that installs everything.</p>
+
+    <h2>Have a question about this service?</h2>
+    <p>
+      If you have any questions <b>about rt.cpan.org</b>, feel free to
+      <a href="mailto:rt-cpan-admin@bestpractical.com">send us mail</a> and we'll do our
+      best to get back to you.
+    </p>
+  </div>

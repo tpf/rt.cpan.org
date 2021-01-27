@@ -1,0 +1,8 @@
+<%args>
+$Queues
+$Right
+</%args>
+<%init>
+$$Right  = undef; # Don't check ShowTicket
+$$Queues = $session{CurrentUser}->UserObj->WatchedQueues('AdminCc', 'Cc');
+</%init>

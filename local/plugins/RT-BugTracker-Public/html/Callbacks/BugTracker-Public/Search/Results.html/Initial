@@ -1,0 +1,9 @@
+<%args>
+$ARGSRef => {}
+</%args>
+<%init>
+return unless RT::BugTracker::Public->IsPublicUser;
+$m->comp("/Public/Search/Results.html", %$ARGSRef);
+$m->comp("/Elements/Footer");
+$m->abort;
+</%init>

@@ -1,0 +1,12 @@
+<%ARGS>
+$types => []
+$actions => {}
+$handle => undef
+</%ARGS>
+<%INIT>
+$actions->{url_overwrite} = sub {
+    my %args = @_;
+    my $url  = $m->interp->apply_escapes($args{value}, 'h');
+    return qq{<span class="clickylink"><a target="new" rel="nofollow" href="$url">$url</a></span>};
+};
+</%INIT>

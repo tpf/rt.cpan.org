@@ -1,0 +1,11 @@
+<%ARGS>
+$titlebar_cmd => undef
+</%ARGS>
+<%INIT>
+return unless $titlebar_cmd;
+
+my $loc_comment = loc('Comment');
+return unless index($$titlebar_cmd, $loc_comment) >= 0;
+
+$$titlebar_cmd =~ s{\[<a [^>]*>$loc_comment</a>\]}{};
+</%INIT>

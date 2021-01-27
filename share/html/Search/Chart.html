@@ -1,0 +1,135 @@
+%# BEGIN BPS TAGGED BLOCK {{{
+%#
+%# COPYRIGHT:
+%#
+%# This software is Copyright (c) 1996-2013 Best Practical Solutions, LLC
+%#                                          <sales@bestpractical.com>
+%#
+%# (Except where explicitly superseded by other copyright notices)
+%#
+%#
+%# LICENSE:
+%#
+%# This work is made available to you under the terms of Version 2 of
+%# the GNU General Public License. A copy of that license should have
+%# been provided with this software, but in any event can be snarfed
+%# from www.gnu.org.
+%#
+%# This work is distributed in the hope that it will be useful, but
+%# WITHOUT ANY WARRANTY; without even the implied warranty of
+%# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+%# General Public License for more details.
+%#
+%# You should have received a copy of the GNU General Public License
+%# along with this program; if not, write to the Free Software
+%# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+%# 02110-1301 or visit their web page on the internet at
+%# http://www.gnu.org/licenses/old-licenses/gpl-2.0.html.
+%#
+%#
+%# CONTRIBUTION SUBMISSION POLICY:
+%#
+%# (The following paragraph is not intended to limit the rights granted
+%# to you to modify and distribute this software under the terms of
+%# the GNU General Public License and is only of importance to you if
+%# you choose to contribute your changes and enhancements to the
+%# community by submitting them to Best Practical Solutions, LLC.)
+%#
+%# By intentionally submitting any modifications, corrections or
+%# derivatives to this work, or any other work intended for use with
+%# Request Tracker, to Best Practical Solutions, LLC, you confirm that
+%# you are the copyright holder for those contributions and you grant
+%# Best Practical Solutions,  LLC a nonexclusive, worldwide, irrevocable,
+%# royalty-free, perpetual, license to use, copy, create derivative
+%# works based on those contributions, and sublicense and distribute
+%# those contributions and any derivatives thereof.
+%#
+%# END BPS TAGGED BLOCK }}}
+<%args>
+$PrimaryGroupBy => 'Queue'
+$ChartStyle => 'bars'
+$Description => undef
+</%args>
+<%init>
+$ARGS{Query} ||= 'id > 0';
+
+# FIXME: should be factored with RT::Report::Tickets::Label :(
+my $PrimaryGroupByLabel;
+if ( $PrimaryGroupBy =~ /^(?:CF|CustomField)\.\{(.*)\}$/ ) {
+    my $cf = $1;
+    if ( $cf =~ /\D/ ) {
+        $PrimaryGroupByLabel = loc( "custom field '[_1]'", $cf );
+    } else {
+        my $obj = RT::CustomField->new( $session{'CurrentUser'} );
+        $obj->Load( $cf );
+        $PrimaryGroupByLabel = loc( "custom field '[_1]'", $obj->Name );
+    }
+} else {
+    $PrimaryGroupByLabel = loc( $PrimaryGroupBy );
+}
+
+my $title = loc( "Search results grouped by [_1]", $PrimaryGroupByLabel );
+
+my $saved_search = $m->comp( '/Widgets/SavedSearch:new',
+    SearchType   => 'Chart',
+    SearchFields => [qw(Query PrimaryGroupBy ChartStyle)] );
+
+my @actions = $m->comp( '/Widgets/SavedSearch:process', args => \%ARGS, self => $saved_search );
+
+my %query;
+
+{
+    if ($saved_search->{'CurrentSearch'}->{'Object'}) {
+        foreach my $search_field (@{ $saved_search->{'SearchFields'} }) {
+            $query{$search_field} = $saved_search->{'CurrentSearch'}->{'Object'}->Content->{$search_field};
+        }
+    }
+
+    my $current = $session{'CurrentSearchHash'};
+
+    my @session_fields = qw(
+        Query
+        SavedChartSearchId
+        SavedSearchDescription
+        SavedSearchLoad
+        SavedSearchLoadButton
+        SavedSearchOwner
+    );
+
+    for(@session_fields) {
+        $query{$_} = $DECODED_ARGS->{$_} unless defined $query{$_};
+        $query{$_} = $current->{$_} unless defined $query{$_};
+    }
+
+    if ($DECODED_ARGS->{'SavedSearchLoadSubmit'}) {
+        $query{'SavedChartSearchId'} = $DECODED_ARGS->{'SavedSearchLoad'};
+    }
+
+    if ($DECODED_ARGS->{'SavedSearchSave'}) {
+        $query{'SavedChartSearchId'} = $saved_search->{'SearchId'};
+    }
+
+}
+
+</%init>
+<& /Elements/Header, Title => $title &>
+<& /Elements/Tabs, QueryArgs => \%query &>
+<& /Elements/ListActions, actions => \@actions &>
+<& /Search/Elements/Chart, %ARGS &>
+
+<div class="chart-meta">
+<div class="chart-type">
+<&| /Widgets/TitleBox, title => loc('Chart Properties')&>
+<form method="get" action="<%RT->Config->Get('WebPath')%>/Search/Chart.html">
+<input type="hidden" class="hidden" name="Query" value="<% $ARGS{Query} %>" />
+<input type="hidden" class="hidden" name="SavedChartSearchId" value="<% $saved_search->{SearchId} || 'new' %>" />
+
+<&|/l_unsafe, $m->scomp('Elements/SelectChartType', Name => 'ChartStyle', Default => $ChartStyle), $m->scomp('Elements/SelectGroupBy', Name => 'PrimaryGroupBy', Query => $ARGS{Query}, Default => $PrimaryGroupBy) 
+&>[_1] chart by [_2]</&><input type="submit" class="button" value="<%loc('Update Chart')%>" />
+</form>
+</&>
+</div>
+<div class="saved-search">
+    <& /Widgets/SavedSearch:show, %ARGS, Action => 'Chart.html', self => $saved_search, Title => loc('Saved charts') &>
+</div>
+</div>

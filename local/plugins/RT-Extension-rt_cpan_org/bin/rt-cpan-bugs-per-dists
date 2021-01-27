@@ -1,0 +1,96 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use List::Util "sum";
+use JSON "encode_json";
+
+eval { require RT; 1 } or usage($@);
+my $output = shift or usage("No output directory specified");
+
+usage("Output directory '$output' doesn't exist!")
+    unless -d $output;
+
+my $tsv  = "$output/bugs-per-dist.data";
+my $json = "$output/bugs-per-dist.data-json";
+
+sub usage {
+    print STDERR @_, "\n\n" if @_;
+    print STDERR "usage: perl -I /opt/rt4/local/lib -I/opt/rt4/lib $0 output-dir\n";
+    exit 1;
+}
+
+RT::LoadConfig();
+RT::Init();
+
+{ my $ttt = $RT::Handle; } # stop warning
+my $dbh = $RT::Handle->dbh;
+$dbh->{RaiseError} = 1;
+
+
+my $query = q{
+    SELECT q.Name, t.Status, count(1)
+    FROM Queues q STRAIGHT_JOIN Tickets t 
+    WHERE
+        t.Queue = q.id
+        AND t.Type = ?
+        AND t.id = t.EffectiveId
+        AND t.Status IS NOT NULL
+
+    GROUP BY q.Name, t.Status
+    ORDER BY q.Name
+};
+my $sth = $dbh->prepare($query);
+$sth->execute('ticket');
+
+my $lifecycle = RT::Lifecycle->Load("default");
+my @active    = $lifecycle->Valid("initial", "active");
+my @inactive  = grep { $_ ne "deleted" } $lifecycle->Valid("inactive");
+my @statuses  = (@active, @inactive);
+
+my @data;
+my %buffer = ('dist' => '');
+while (my ($dist, $status, $count) = $sth->fetchrow_array) {
+    if ( $buffer{dist} && $buffer{dist} ne $dist ) {
+        push @data, { %buffer };
+
+        %buffer = ( dist => $dist, counts => { $status => $count + 0 } );
+    } else {
+        $buffer{dist} ||= $dist;
+        $buffer{counts}{ $status } = $count + 0; # force numeric context for JSON
+    }
+}
+push @data, { %buffer };
+
+for my $row (@data) {
+    $row->{counts}{$_} ||= 0 for @statuses;
+    $row->{counts}{"active"}   = sum @{ $row->{counts} }{ @active };
+    $row->{counts}{"inactive"} = sum @{ $row->{counts} }{ @inactive };
+}
+
+# Writing JSON before the TSV preserves numeric context destroyed by print()
+write_json(\@data);
+write_tsv(\@data);
+exit;
+
+sub write_tsv {
+    my $data = shift;
+    open my $fh,  ">", $tsv or die "unable to open $tsv for writing: $!";
+
+    my $date = `date`;
+    chomp $date;
+    print { $fh } "# Generated on $date\n";
+    print { $fh } "# ", join("\t", "dist", @statuses, "active", "inactive"), "\n";
+    for my $row (@$data) {
+        print { $fh } join("\t", $row->{dist}, @{ $row->{counts} }{ @statuses, "active", "inactive" } ), "\n";
+    }
+    close $fh or die "couldn't close $tsv: $!";
+}
+
+sub write_json {
+    my $data = shift;
+    my %data = map {; $_->{dist} => $_ } @$data;
+    open my $fh,  ">", $json or die "unable to open $json for writing: $!";
+    print { $fh } encode_json(\%data), "\n";
+    close $fh or die "couldn't close $json: $!";
+}

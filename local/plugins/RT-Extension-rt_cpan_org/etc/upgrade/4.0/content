@@ -1,0 +1,59 @@
+use strict;
+use warnings;
+
+our @ACL = (
+    {
+        Right       => 'OpenTicket',
+        GroupDomain => 'SystemInternal',
+        GroupType   => 'Everyone',
+    }
+);
+
+our @ScripConditions = (
+    {   Name                 => 'On Correspond and New or Stalled',
+        Description          => 'When a new or stalled ticket receives a correspondence',
+        ApplicableTransTypes => 'Correspond',
+        ExecModule           => 'Status',
+        Argument             => 'new,stalled', },
+);
+
+our @Scrips = (
+    {   Description    => 'On Correspond and New or Stalled, then Open Ticket',
+        ScripCondition => 'On Correspond and New or Stalled',
+        ScripAction    => 'Open Tickets',
+        Template       => 'Blank' },
+);
+
+our @Final = (
+    sub {
+        my $scrip = RT::Scrip->new( RT->SystemUser );
+        $scrip->LoadByCols( Description => "On Correspond Open Tickets" );
+        RT->Logger->error("Unable to find scrip On Correspond Open Tickets"), return
+            unless $scrip->id;
+
+        my ($ok, $msg) = $scrip->SetStage('Disabled');
+        RT->Logger->error("Unable to set scrip stage to Disabled: $msg")
+            unless $ok;
+    },
+    sub {
+        my $cf = RT::CustomField->new( RT->SystemUser );
+        $cf->LoadByCols( Name => "Severity" );
+        RT->Logger->error("Unable to find CF Severity"), return
+            unless $cf->id;
+
+        my ($ok, $msg) = $cf->SetRenderType('Dropdown');
+        RT->Logger->error("Unable to set CF render type to Dropdown: $msg")
+            unless $ok;
+
+        my $ocf = RT::ObjectCustomField->new( RT->SystemUser );
+        $ocf->LoadByCols( CustomField => $cf->id, ObjectId => 0 ); # global application
+        RT->Logger->error("Unable to find global OCF for CF Severity"), return
+            unless $ocf->id;
+
+        ($ok, $msg) = $ocf->SetSortOrder(0);
+        RT->Logger->error("Unable to set OCF sort order to 0: $msg")
+            unless $ok;
+    },
+);
+
+1;

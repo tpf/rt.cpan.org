@@ -1,0 +1,33 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+eval { require RT; 1 } or do {
+    print STDERR "$@\n\nusage: perl -I /opt/rt4/local/lib -I/opt/rt4/lib $0 > results.tsv\n";
+    exit 1;
+};
+
+RT::LoadConfig();
+RT::Init();
+
+{ my $ttt = $RT::Handle; } # stop warning
+my $dbh = $RT::Handle->dbh;
+$dbh->{RaiseError} = 1;
+
+# XXX: we don't filter disabled queue as we want to leave historical notes
+my $query = q{
+    SELECT DISTINCT address FROM (
+        SELECT q.CommentAddress AS address FROM Queues q WHERE q.Disabled = 0
+        UNION ALL
+        SELECT q.CorrespondAddress AS address FROM Queues q WHERE q.Disabled = 0
+    ) AS addresses
+};
+my $sth = $dbh->prepare($query);
+$sth->execute;
+
+while (($_) = $sth->fetchrow_array) {
+    s/\s+//g;
+    next unless defined && length;
+    print $_, "\n";
+}
+exit 0;

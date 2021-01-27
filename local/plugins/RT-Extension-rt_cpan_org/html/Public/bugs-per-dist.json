@@ -1,0 +1,30 @@
+<%flags>
+inherit => undef
+</%flags>
+<%init>
+$r->content_type("application/json");
+$r->headers_out->{'Access-Control-Allow-Origin'}  = '*';
+$r->headers_out->{'Access-Control-Allow-Methods'} = 'GET';
+
+my $fname = '';
+foreach my $test ( map "$_/Public/bugs-per-dist.data-json", map $_->[1], $m->interp->comp_root_array ) {
+    next unless -f $test;
+
+    $fname = $test;
+    last;
+}
+
+unless ( $fname ) {
+    RT->Logger->error("Couldn't find JSON data file");
+    $m->abort(404);
+}
+
+if ( open my $fh, "<", $fname ) {
+    binmode $fh;
+    local $/ = \(1024 * 10); # read in 10k chunks; the file is a single line
+    $m->out($_) while <$fh>;
+} else {
+    RT->Logger->error("Couldn't open JSON data file: $!");
+    $m->abort(404);
+}
+</%init>

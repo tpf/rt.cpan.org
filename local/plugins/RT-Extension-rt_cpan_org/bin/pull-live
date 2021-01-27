@@ -1,0 +1,170 @@
+#!/usr/bin/env perl
+
+use Getopt::Long;
+
+my $rthome = $ENV{'RTHOME'} || "/home/rtcpan/rt";
+
+my $perlbrew_perl = "/home/rtcpan/perlbrew/perls/rt/bin/perl";
+my $perl =       $ENV{'PERL'} ?   $ENV{'PERL'} :
+            -e $perlbrew_perl ? $perlbrew_perl :
+                                           $^X ;
+
+my (@skip, @only, $batch);
+GetOptions(
+    "skip=s@" => \@skip,
+    "only=s@" => \@only,
+    "rt=s"    => \$rthome,
+    "perl=s"  => \$perl,
+    "batch"   => \$batch,
+);
+
+sub skip($);
+
+$ENV{'PERL'} = $perl;
+$ENV{'RTHOME'} = $rthome;
+
+unless ($batch) {
+    print <<SANITY_CHECK;
+RT:   $rthome
+Perl: $perl
+
+Press enter to continue or ^C to abort.
+SANITY_CHECK
+    <STDIN>;
+}
+
+my $rt_opts =
+     " --prefix=$rthome"
+    ." --with-db-type=mysql"
+    ." --with-db-host=''" # connect via socket
+    ." --with-db-database=rt_cpan_org"
+    ." --disable-gpg"
+    ." --with-web-handler=fastcgi,standalone"
+    ." --with-my-user-group";
+
+use File::Temp qw(tempdir);
+use File::Path qw(rmtree);
+
+my @UPDATE = qw{
+    RT-Extension-MergeUsers
+    RT-Authen-Bitcard
+    RT-Authen-PAUSE
+    RT-BugTracker
+    RT-BugTracker-Public
+    RT-Extension-rt_cpan_org
+    RT-Extension-QuickDelete
+    RT-Extension-ReportSpam
+    RT-Authen-OpenID
+    RT-Extension-Utils
+    CPAN2RT
+    RT-Extension-CustomizeContentType
+    RTx-RemoteLinks
+};
+
+my %REPOS = (
+    'CPAN2RT'                  => 'git://github.com/bestpractical/cpan2rt.git --branch deploy',
+    'RT-Authen-Bitcard'        => 'git://github.com/bestpractical/rt-authen-bitcard.git',
+    'RT-Authen-OpenID'         => 'git://github.com/bestpractical/rt-authen-openid.git',
+    'RT-Authen-PAUSE'          => 'git://github.com/bestpractical/rt-authen-pause.git',
+    'RT-BugTracker'            => 'git://github.com/bestpractical/rt-bugtracker.git',
+    'RT-BugTracker-Public'     => 'git://github.com/bestpractical/rt-bugtracker-public.git',
+    'RT-Extension-MergeUsers'  => 'git://github.com/bestpractical/rt-extension-mergeusers.git',
+    'RT-Extension-QuickDelete' => 'git://github.com/bestpractical/rt-extension-quickdelete.git',
+    'RT-Extension-rt_cpan_org' => 'git://github.com/bestpractical/rt-extension-rt_cpan_org.git',
+    'RT-Extension-ReportSpam'  => 'git://github.com/bestpractical/rt-extension-reportspam.git',
+    'RT-Extension-Utils'       => 'git://github.com/bestpractical/rt-extension-utils.git',
+    'RT-Extension-CustomizeContentType' => 'git://github.com/bestpractical/rt-extension-customizecontenttype.git',
+    'RTx-RemoteLinks'          => 'git://github.com/bestpractical/rtx-remotelinks.git',
+);
+
+my $tmp_dir = tempdir( "pull-live-XXXXX", TMPDIR => 1, CLEANUP => 1 )
+    or die "Couldn't get temp dir";
+
+chdir $tmp_dir;
+
+unless ( skip 'RT' ) {
+    my $url = 'http://download.bestpractical.com/pub/rt/release/rt.tar.gz';
+    run("curl $url | tar xzp")
+        or die "Couldn't download and extract RT ($url)";
+    run("cd rt-4.* && ./configure $rt_opts && make install")
+        or die "Couldn't upgrade RT";
+}
+
+
+foreach my $module (@UPDATE) {
+    next if skip $module;
+
+    print "Trying to install $module...\n";
+
+    my $repo = $REPOS{ $module };
+    print "Getting $repo...\n";
+    if ( $repo =~ /^svn/ ) {
+        run("svn export --quiet --non-interactive --force $repo $module")
+            or die "Couldn't export repo";
+    } else {
+        run("git clone --quiet $repo $module")
+            or die "Couldn't export repo";
+    }
+
+    print "Installing $module...\n";
+    run("cd $module && $perl ./Makefile.PL && make && make install")
+        or die "Couldn't install module";
+
+    for my $patch (<$module/patches/*.patch>) {
+        print "Patching RT with $patch...\n";
+        run("patch --forward -p1 -d $rthome < $patch",
+            ignore_exit => 1,
+            fail_on     => qr/FAILED/)
+                or warn "Couldn't apply patch $patch.  Please apply it manually.\n";
+    }
+
+    rmtree($module);
+    print "\n";
+}
+
+# adjust bugs-per-dist.data and queue-addresses
+foreach my $path (qw(/local/plugins/RT-Extension-rt_cpan_org/html/Public/bugs-per-dist.data /local/plugins/RT-Extension-rt_cpan_org/html/NoAuth/cpan)) {
+    my $f = $rthome . $path;
+    run("touch $f") unless -e $f;
+    run("chown -R rtcpan:rtcpan $f")
+        or warn "Couldn't change owner of '$f'. Please fix the owner manually.\n";
+}
+
+# clean mason cache
+run("rm -fr $rthome/var/mason_data/obj/")
+    or warn "Couldn't clean mason cache\n";
+
+END { chdir ".." }
+
+exit 0;
+
+sub skip($) {
+    my $name = shift;
+    return 1 if @skip &&  grep $name eq $_, @skip;
+    return 1 if @only && !grep $name eq $_, @only;
+    return 0;
+}
+
+sub run {
+    my $cmd     = shift;
+    my %args    = @_;
+    my $stdout  = `$cmd`;
+    my $failed  = $args{ignore_exit} ? 0 : $?;
+
+    $failed = 1 if $args{fail_on}
+        and $stdout =~ /$args{fail_on}/;
+
+    if ($failed) {
+        warn "  Command: $cmd\n";
+        if    ($? == -1) { warn "  Failed to execute: $cmd\n" }
+        elsif ($? & 127) { warn "  Child died with signal ", $? & 127, "\n" }
+        else             { warn "  Command exited with ", $? >> 8, "\n" }
+        if ($stdout) {
+            warn "  Command output:\n";
+            warn "    $_\n" for split /\n/, $stdout;
+        }
+        return 0;
+    } else {
+        return 1;
+    }
+}

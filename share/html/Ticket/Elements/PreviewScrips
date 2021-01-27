@@ -1,0 +1,123 @@
+%# BEGIN BPS TAGGED BLOCK {{{
+%#
+%# COPYRIGHT:
+%#
+%# This software is Copyright (c) 1996-2013 Best Practical Solutions, LLC
+%#                                          <sales@bestpractical.com>
+%#
+%# (Except where explicitly superseded by other copyright notices)
+%#
+%#
+%# LICENSE:
+%#
+%# This work is made available to you under the terms of Version 2 of
+%# the GNU General Public License. A copy of that license should have
+%# been provided with this software, but in any event can be snarfed
+%# from www.gnu.org.
+%#
+%# This work is distributed in the hope that it will be useful, but
+%# WITHOUT ANY WARRANTY; without even the implied warranty of
+%# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+%# General Public License for more details.
+%#
+%# You should have received a copy of the GNU General Public License
+%# along with this program; if not, write to the Free Software
+%# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+%# 02110-1301 or visit their web page on the internet at
+%# http://www.gnu.org/licenses/old-licenses/gpl-2.0.html.
+%#
+%#
+%# CONTRIBUTION SUBMISSION POLICY:
+%#
+%# (The following paragraph is not intended to limit the rights granted
+%# to you to modify and distribute this software under the terms of
+%# the GNU General Public License and is only of importance to you if
+%# you choose to contribute your changes and enhancements to the
+%# community by submitting them to Best Practical Solutions, LLC.)
+%#
+%# By intentionally submitting any modifications, corrections or
+%# derivatives to this work, or any other work intended for use with
+%# Request Tracker, to Best Practical Solutions, LLC, you confirm that
+%# you are the copyright holder for those contributions and you grant
+%# Best Practical Solutions,  LLC a nonexclusive, worldwide, irrevocable,
+%# royalty-free, perpetual, license to use, copy, create derivative
+%# works based on those contributions, and sublicense and distribute
+%# those contributions and any derivatives thereof.
+%#
+%# END BPS TAGGED BLOCK }}}
+<%args>
+$TicketObj => undef
+</%args>
+<%init>
+my $Object = $m->notes("DryRun-".$TicketObj->Id) || $TicketObj->DryRun(%ARGS);
+my %recips = %{ $m->notes("DryRun-Recipients-".$TicketObj->Id) || {} };
+return unless $Object;
+
+my %squelched = ProcessTransactionSquelching( \%ARGS );
+</%init>
+<p>
+<&|/l, RT->Config->Get('WebPath')."/Ticket/ModifyPeople.html?id=".$TicketObj->Id,
+&>Uncheck boxes to disable notifications to the listed recipients <b>for this transaction only</b>; persistent squelching is managed on the <a href="[_1]">People page</a>.</&>
+</p>
+
+% if ( $Object->Scrips ) {
+%     # Sort scrips with recipients before those without
+%     my @scrips = map { $_->[0] }
+%                  sort { ($b->[1]?1:0) <=> ($a->[1]?1:0) }
+%                  map { [$_, $_->ActionObj->Action->To + $_->ActionObj->Action->Cc + $_->ActionObj->Action->Bcc] }
+%                  grep {$_->ActionObj->Action->isa('RT::Action::SendEmail')}
+%                  @{$Object->Scrips->Prepared};
+%     for my $scrip (@scrips) {
+          <b><% $scrip->Description || loc('Scrip #[_1]',$scrip->id) %></b><br />
+          <&|/l, loc($scrip->ConditionObj->Name), loc($scrip->ActionObj->Name), loc($scrip->TemplateObj->Name)&>[_1] [_2] with template [_3]</&>
+          <br />
+%         for my $type (qw(To Cc Bcc)) {
+%             my @addresses =  $scrip->ActionObj->Action->$type();
+%             next unless @addresses;
+              <ul>
+%             for my $addr (@addresses) {
+                  <li>
+%                 my $checked = not $squelched{$addr->address};
+%                 $m->callback(CallbackName => 'BeforeAddress', Ticket => $TicketObj, Address => $addr, Type => $type, Checked => \$checked);
+%                 $recips{$addr->address}++;
+                  <b><%loc($type)%></b>: <input type="checkbox" class="checkbox" name="TxnSendMailTo" <% $checked ? 'checked="checked"' : '' |n%> value="<%$addr->address%>" id="TxnSendMailTo-<% $addr->address %>-<% $recips{$addr->address} %>" />
+                  <label for="TxnSendMailTo-<% $addr->address %>-<% $recips{$addr->address} %>"><& /Elements/ShowUser, Address => $addr &></label>
+%                 $m->callback(CallbackName => 'AfterAddress', Ticket => $TicketObj, Address => $addr, Type => $type);
+                  </li>
+%             }
+              </ul>
+%         }
+%         if (RT->Config->Get('PreviewScripMessages')) {
+              <textarea cols="80" rows="5"><%$scrip->ActionObj->TemplateObj->MIMEObj->as_string%></textarea>
+%         }
+          <br />
+%     }
+% }
+
+% if ( $Object->Rules ) {
+%     for my $rule (@{$Object->Rules}) {
+%         next unless $rule->{hints} && $rule->{hints}{class} eq 'SendEmail';
+          <b><% $rule->Describe %></b>
+%         my $data = $rule->{hints}{recipients};
+%         for my $type (qw(To Cc Bcc)) {
+%             next unless @{$data->{$type}};
+              <ul>
+%             for my $address (@{$data->{$type}}) {
+                  <li>
+%                 my $checked = not $squelched{$address};
+%                 $m->callback(CallbackName => 'BeforeAddress', Ticket => $TicketObj, Address => Email::Address->parse($address), Type => $type, Checked => \$checked);
+%                 $recips{$address}++;
+                  <b><%loc($type)%></b>: <input type="checkbox" class="checkbox" name="TxnSendMailTo" <% $checked ? 'checked="checked"' : '' |n%> value="<%$address%>" id="TxnSendMailTo-<% $address %>-<% $recips{$address} %>" />
+                  <label for="TxnSendMailTo-<% $address %>-<% $recips{$address} %>"><%$address%></label>
+%                 $m->callback(CallbackName => 'AfterAddress', Ticket => $TicketObj, Address => Email::Address->parse($address), Type => $type);
+                  </li>
+%             }
+              </ul>
+%         }
+          <br />
+%     }
+% }
+
+% $m->callback( CallbackName => 'AfterRecipients', TicketObj => $TicketObj );
+
+% $m->notes("DryRun-Recipients-".$TicketObj->Id, \%recips);

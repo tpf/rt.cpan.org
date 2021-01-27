@@ -1,0 +1,5 @@
+<%init>
+# All the actual auth is handled in an autohandler callback.  This simply
+# provides a CSRF-whitelisted endpoint.
+RT::Interface::Web::Redirect( RT->Config->Get("WebPath") );
+</%init>

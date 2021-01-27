@@ -1,0 +1,15 @@
+<%init>
+return unless (RT->Config->Get("EnableOpenId"));
+</%init>
+<h3><&|/l&>Have an <em>OpenID</em>?</&></h3>
+<p><% loc('Log in with it and have a look around.') %></p>
+<div class="input-row">
+    <span class="label"><&|/l&>OpenID</&>:</span>
+    <span class="input"><input name="openid" value="<% $DECODED_ARGS->{openid} || "" %>" /></span>
+</div>
+<div class="button-row">
+    <span class="input">
+      <input type="submit"
+          onclick="jQuery(this).closest('form').find('input[name=user],input[name=pass]').attr('disabled','disabled');return true;"
+            class="button" value="<&|/l&>Login with OpenID</&>" /></span>
+</div>

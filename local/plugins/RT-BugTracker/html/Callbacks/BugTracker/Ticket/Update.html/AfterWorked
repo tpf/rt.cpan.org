@@ -1,0 +1,10 @@
+<%args>
+$Ticket
+</%args>
+<& /Ticket/Elements/EditCustomFields,
+    %ARGS,
+    TicketObj   => $Ticket,
+    InTable     => 1,
+    # Handled by our MassageCustomFields callback in the called component
+    Named       => ["Fixed in"],
+    &>

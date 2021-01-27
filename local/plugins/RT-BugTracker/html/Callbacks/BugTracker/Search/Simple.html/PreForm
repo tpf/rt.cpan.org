@@ -1,0 +1,8 @@
+<p>For bug tracking, the simple search is customized with the following
+behaviour:</p>
+
+<p>Enter a <strong>distribution name</strong> to jump to the bug list or a
+<strong>PAUSE id</strong> to jump to the list of distributions maintained by
+that author.</p>
+
+<p>Otherwise, all rules below apply.</p>

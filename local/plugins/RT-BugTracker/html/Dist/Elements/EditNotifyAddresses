@@ -1,0 +1,28 @@
+<label class="dist-addresses"><% loc('Additional addresses RT should notify') %>:
+<textarea cols="120" rows="10" name="Queue-<% $Queue->id %>-NotifyAddresses"><% join ', ', @$value %></textarea></label><br />
+<%ARGS>
+$Queue => undef
+</%ARGS>
+<%INIT>
+my $value = $Queue->NotifyAddresses;
+</%INIT>
+
+<%METHOD Process>
+<%ARGS>
+$Queue => undef
+</%ARGS>
+<%INIT>
+return () unless exists $ARGS{'Queue-'. $Queue->id .'-NotifyAddresses'};
+my $value = $ARGS{'Queue-'. $Queue->id .'-NotifyAddresses'};
+
+my @addrs = grep /\@/, map $_->address, grep defined,
+    Mail::Address->parse( $value );
+
+return () if join(',', @{$Queue->NotifyAddresses}) eq join(',', @addrs);
+
+my ($status, $msg) = $Queue->SetNotifyAddresses(
+    @addrs? \@addrs : undef
+);
+return $msg;
+</%INIT>
+</%METHOD>

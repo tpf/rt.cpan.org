@@ -1,0 +1,34 @@
+% $r->content_type('application/json');
+<% JSON( \@suggestions ) |n %>
+% $m->abort;
+<%ARGS>
+$term   => undef
+$max    => 10
+$op     => 'STARTSWITH'
+$right  => undef
+</%ARGS>
+<%INIT>
+$m->abort unless defined $term
+             and length $term;
+
+my $variant = $term;
+   $variant =~ s/::/-/g;
+
+# Sanity check the operator
+$op = 'STARTSWITH' unless $op =~ /^(?:LIKE|(?:START|END)SWITH|=|!=)$/i;
+
+my $queues = RT::Queues->new( $session{CurrentUser} );
+$queues->RowsPerPage( $max );
+$queues->Limit(
+    FIELD           => 'Name',
+    OPERATOR        => $op,
+    VALUE           => $_,
+    ENTRYAGGREGATOR => 'OR',
+) for ($term, $variant);
+
+my @suggestions;
+while (my $q = $queues->Next) {
+    next if $right and not $q->CurrentUserHasRight($right);
+    push @suggestions, { label => $q->Name, value => $q->Name };
+}
+</%INIT>

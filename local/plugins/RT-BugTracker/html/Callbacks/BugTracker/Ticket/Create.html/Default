@@ -1,0 +1,15 @@
+<%args>
+$QueueObj
+$title => undef
+</%args>
+<%init>
+if ( $QueueObj->Disabled ) {
+    $m->comp('/Dist/Elements/ErrorDisabled', Queue => $QueueObj );
+    $m->abort;
+}
+
+if ( $title ) {
+    $$title = loc("Report a new bug in [_1]", $QueueObj->Name || ('#'.$QueueObj->id) );
+}
+
+</%init>

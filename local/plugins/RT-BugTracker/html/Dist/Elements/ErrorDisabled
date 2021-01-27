@@ -1,0 +1,10 @@
+<& /Elements/Header, Title => loc("Error") &>
+<& /Elements/Tabs &>
+
+<& /Dist/Elements/ShowNotes, Queue => $Queue &>
+
+<& /Elements/Footer &>
+
+<%args>
+$Queue => undef
+</%args>

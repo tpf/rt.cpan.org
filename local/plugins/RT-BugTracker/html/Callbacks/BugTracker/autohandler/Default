@@ -1,0 +1,3 @@
+<%INIT>
+use RT::BugTracker;
+</%INIT>

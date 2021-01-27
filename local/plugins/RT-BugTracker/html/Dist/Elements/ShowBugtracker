@@ -1,0 +1,24 @@
+% if ( defined $bugtracker ) {
+<div id="external_bugtracker">
+<h3><% loc("Preferred bug tracker") %></h3>
+%
+% if ( defined $bugtracker->{mailto} ) {
+<p>
+<div>Please email the <a href="mailto:<% $bugtracker->{mailto} %>">preferred bug tracker</a> to report your issue.</div>
+</p>
+% }
+%
+% if ( defined $bugtracker->{web} ) {
+<p>
+<div>Please visit the <a href="<% $bugtracker->{web} %>">preferred bug tracker</a> to report your issue.</div>
+</p>
+% }
+</div>
+% }
+%
+<%ARGS>
+$Queue
+</%ARGS>
+<%INIT>
+my $bugtracker = $Queue->DistributionBugtracker;
+</%INIT>

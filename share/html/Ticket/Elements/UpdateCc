@@ -1,0 +1,96 @@
+%# BEGIN BPS TAGGED BLOCK {{{
+%#
+%# COPYRIGHT:
+%#
+%# This software is Copyright (c) 1996-2013 Best Practical Solutions, LLC
+%#                                          <sales@bestpractical.com>
+%#
+%# (Except where explicitly superseded by other copyright notices)
+%#
+%#
+%# LICENSE:
+%#
+%# This work is made available to you under the terms of Version 2 of
+%# the GNU General Public License. A copy of that license should have
+%# been provided with this software, but in any event can be snarfed
+%# from www.gnu.org.
+%#
+%# This work is distributed in the hope that it will be useful, but
+%# WITHOUT ANY WARRANTY; without even the implied warranty of
+%# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+%# General Public License for more details.
+%#
+%# You should have received a copy of the GNU General Public License
+%# along with this program; if not, write to the Free Software
+%# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+%# 02110-1301 or visit their web page on the internet at
+%# http://www.gnu.org/licenses/old-licenses/gpl-2.0.html.
+%#
+%#
+%# CONTRIBUTION SUBMISSION POLICY:
+%#
+%# (The following paragraph is not intended to limit the rights granted
+%# to you to modify and distribute this software under the terms of
+%# the GNU General Public License and is only of importance to you if
+%# you choose to contribute your changes and enhancements to the
+%# community by submitting them to Best Practical Solutions, LLC.)
+%#
+%# By intentionally submitting any modifications, corrections or
+%# derivatives to this work, or any other work intended for use with
+%# Request Tracker, to Best Practical Solutions, LLC, you confirm that
+%# you are the copyright holder for those contributions and you grant
+%# Best Practical Solutions,  LLC a nonexclusive, worldwide, irrevocable,
+%# royalty-free, perpetual, license to use, copy, create derivative
+%# works based on those contributions, and sublicense and distribute
+%# those contributions and any derivatives thereof.
+%#
+%# END BPS TAGGED BLOCK }}}
+% $m->callback(CallbackName => 'BeforeCc', ARGSRef => \%ARGS, Ticket => $TicketObj, one_time_Ccs => \@one_time_Ccs, txn_addresses => \%txn_addresses);
+
+<tr><td class="label"><&|/l&>One-time Cc</&>:</td><td><& /Elements/EmailInput, Name => 'UpdateCc', Size => undef, Default => $ARGS{UpdateCc} &>
+<input type="hidden" id="UpdateIgnoreAddressCheckboxes" name="UpdateIgnoreAddressCheckboxes" value="0">
+        <br />
+
+%if (scalar @one_time_Ccs) {
+<i class="label">(<&|/l&>check to add</&>)</i>
+%}
+%foreach my $addr ( @one_time_Ccs ) {
+<input
+    id="UpdateCc-<%$addr%>"
+    name="UpdateCc-<%$addr%>"
+    class="onetime onetimecc"
+    type="checkbox"
+% my $clean_addr = $txn_addresses{$addr}->format;
+    onClick="checkboxToInput('UpdateCc', <% "UpdateCc-$addr" |n,j%>, <%$clean_addr|n,j%> );"
+    <% $ARGS{'UpdateCc-'.$addr} ? 'checked="checked"' : ''%> > <& /Elements/ShowUser, Address => $txn_addresses{$addr}&>
+%}
+</td></tr>
+<tr><td class="label"><&|/l&>One-time Bcc</&>:</td><td><& /Elements/EmailInput, Name => 'UpdateBcc', Size => undef, Default => $ARGS{UpdateBcc} &><br />
+%if (scalar @one_time_Ccs) {
+<i class="label">(<&|/l&>check to add</&>)</i>
+%}
+%foreach my $addr ( @one_time_Ccs ) {
+<input
+    id="UpdateBcc-<%$addr%>"
+    name="UpdateBcc-<%$addr%>"
+    class="onetime onetimebcc"
+    type="checkbox"
+% my $clean_addr = $txn_addresses{$addr}->format;
+    onClick="checkboxToInput('UpdateBcc', <% "UpdateBcc-$addr" |n,j%>, <%$clean_addr|n,j%> );"
+        <% $ARGS{'UpdateBcc-'.$addr} ? 'checked="checked"' : ''%>> 
+<& /Elements/ShowUser, Address => $txn_addresses{$addr}&>
+%}
+</td></tr>
+<%args>
+$TicketObj
+</%args>
+<%init>
+my %txn_addresses = %{$TicketObj->TransactionAddresses};
+my @req_addresses = split /,/, $TicketObj->RequestorAddresses;
+my @one_time_Ccs;
+
+foreach my $addr ( keys %txn_addresses) {
+  next if ( grep {$addr eq $_} @req_addresses );
+  push @one_time_Ccs,$addr;
+}
+</%init>

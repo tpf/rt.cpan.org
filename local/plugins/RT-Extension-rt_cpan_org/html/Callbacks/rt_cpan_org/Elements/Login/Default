@@ -1,0 +1,13 @@
+<h3>Sign in with Auth0 🆕 </h3>
+<p>
+<a class="scale-hover" href="<% $RT::WebPath %>/NoAuth/OAuth?next=/">
+   <img src="<% $RT::WebPath %>/NoAuth/images/btn_auth0_signin.png"
+   	alt="Sign in with Auth0">
+</a>
+</p>
+
+<p>
+    Use your <b>Google</b> or <b>GitHub</b> account, or create a new Auth0
+    account.  The primary email address on the account must match your
+    existing <tt>rt.perl.org</tt> account.
+</p>

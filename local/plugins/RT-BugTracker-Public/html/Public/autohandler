@@ -1,0 +1,29 @@
+<%INIT>
+return $m->call_next if RT::BugTracker::Public->IsPublicUser;
+
+$RT::Logger->debug(
+    "Not a public user, not BitCard, not Openid."
+    ." Going to redirect to main URL"
+);
+
+my $new_path = $m->request_path;
+$new_path =~ s{/+Public/}{/};
+
+# special cases:
+$new_path =~ s{^/+(?:Browse|Dist/+BeginsWith)\.html}{/Dist/Browse.html};
+$new_path =~ s{^/Bug/+Display\.html}{/Ticket/Display.html};
+$new_path =~ s{^/Bug/+Report\.html}{/Ticket/Create.html};
+$new_path =~ s{^/Bug/+}{/Ticket/};
+
+# if comp not exist then we just continue and see what will happen
+return $m->call_next unless $m->comp_exists($new_path);
+
+# delete user && password from arguments
+delete @ARGS{'pass', 'user'};
+
+$m->redirect(
+    $RT::WebPath . $new_path
+    .'?'. $m->comp('/Elements/QueryString', %ARGS)
+);
+$m->abort;
+</%INIT>

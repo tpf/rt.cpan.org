@@ -1,0 +1,8 @@
+<& /Elements/Header, Title => loc('How to use rt.cpan.org'), RichText => 0 &>
+% if ($session{CurrentUser} and $session{CurrentUser}->id) {
+<& /Elements/Tabs &>
+% } else {
+<div id="body">
+% }
+
+<& /Elements/Instructions &>

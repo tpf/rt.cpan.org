@@ -1,0 +1,13 @@
+<%ARGS>
+$URL => undef
+</%ARGS>
+<%INIT>
+# There are two Default callbacks, unfortunately. We want the one with $URL.
+return unless $URL;
+return unless $session{'BitcardUser'};
+
+delete $session{'BitcardUser'};
+
+require RT::Authen::Bitcard;
+$$URL = RT::Authen::Bitcard->Handler->logout_url( r => RT->Config->Get("WebURL") );
+</%INIT>

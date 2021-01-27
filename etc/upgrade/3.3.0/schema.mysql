@@ -1,0 +1,60 @@
+drop index transactions1 ON Transactions;
+
+alter Table Transactions
+    ADD COLUMN  (ObjectType varchar(64) not null),
+    DROP COLUMN EffectiveTicket,
+    ADD COLUMN  ReferenceType varchar(255) NULL,
+    ADD COLUMN  OldReference integer NULL,
+    ADD COLUMN  NewReference integer NULL,
+    CHANGE      Ticket ObjectId integer NOT NULL DEFAULT 0;
+
+UPDATE Transactions set ObjectType = 'RT::Ticket';
+CREATE INDEX Transactions1 ON Transactions (ObjectType, ObjectId);
+
+alter table TicketCustomFieldValues rename ObjectCustomFieldValues,
+    change Ticket ObjectId integer NOT NULL DEFAULT 0  ,
+    add column ObjectType varchar(255) not null,
+    add column Current bool default 1,
+    add column LargeContent LONGTEXT NULL,
+    add column ContentType varchar(80) NULL,
+    add column ContentEncoding varchar(80) NULL;
+
+update ObjectCustomFieldValues set ObjectType = 'RT::Ticket';
+
+# These could fail if there's no such index and there's no "drop index if exists" syntax
+#alter table ObjectCustomFieldValues drop index ticketcustomfieldvalues1;
+#alter table ObjectCustomFieldValues drop index ticketcustomfieldvalues2;
+
+alter table ObjectCustomFieldValues add index ObjectCustomFieldValues1 (Content),
+    add index ObjectCustomFieldValues2 (CustomField,ObjectType,ObjectId);
+
+
+CREATE TABLE ObjectCustomFields (
+  id INTEGER NOT NULL  AUTO_INCREMENT,
+  CustomField int NOT NULL  ,
+  ObjectId integer NOT NULL,
+  SortOrder integer NOT NULL DEFAULT 0  ,
+
+  Creator integer NOT NULL DEFAULT 0  ,
+  Created DATETIME NULL  ,
+  LastUpdatedBy integer NOT NULL DEFAULT 0  ,
+  LastUpdated DATETIME NULL  ,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB;
+
+
+INSERT into ObjectCustomFields (id, CustomField, ObjectId, SortOrder, Creator, LastUpdatedBy) SELECT  null, id, Queue, SortOrder, Creator, LastUpdatedBy from CustomFields;
+
+alter table CustomFields add column LookupType varchar(255) NOT NULL,
+    add column Repeated int2 NOT NULL DEFAULT 0 ,
+    add column Pattern varchar(255) NULL,
+    add column MaxValues integer;
+# See above
+# alter table CustomFields drop index CustomFields1;
+
+UPDATE CustomFields SET MaxValues = 0 WHERE Type LIKE '%Multiple';
+UPDATE CustomFields SET MaxValues = 1 WHERE Type LIKE '%Single';
+UPDATE CustomFields SET Type = 'Select' WHERE Type LIKE 'Select%';
+UPDATE CustomFields SET Type = 'Freeform' WHERE Type LIKE 'Freeform%';
+UPDATE CustomFields Set LookupType = 'RT::Queue-RT::Ticket';
+alter table CustomFields drop column Queue;

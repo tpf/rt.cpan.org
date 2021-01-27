@@ -1,0 +1,215 @@
+%# BEGIN BPS TAGGED BLOCK {{{
+%#
+%# COPYRIGHT:
+%#
+%# This software is Copyright (c) 1996-2013 Best Practical Solutions, LLC
+%#                                          <sales@bestpractical.com>
+%#
+%# (Except where explicitly superseded by other copyright notices)
+%#
+%#
+%# LICENSE:
+%#
+%# This work is made available to you under the terms of Version 2 of
+%# the GNU General Public License. A copy of that license should have
+%# been provided with this software, but in any event can be snarfed
+%# from www.gnu.org.
+%#
+%# This work is distributed in the hope that it will be useful, but
+%# WITHOUT ANY WARRANTY; without even the implied warranty of
+%# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+%# General Public License for more details.
+%#
+%# You should have received a copy of the GNU General Public License
+%# along with this program; if not, write to the Free Software
+%# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+%# 02110-1301 or visit their web page on the internet at
+%# http://www.gnu.org/licenses/old-licenses/gpl-2.0.html.
+%#
+%#
+%# CONTRIBUTION SUBMISSION POLICY:
+%#
+%# (The following paragraph is not intended to limit the rights granted
+%# to you to modify and distribute this software under the terms of
+%# the GNU General Public License and is only of importance to you if
+%# you choose to contribute your changes and enhancements to the
+%# community by submitting them to Best Practical Solutions, LLC.)
+%#
+%# By intentionally submitting any modifications, corrections or
+%# derivatives to this work, or any other work intended for use with
+%# Request Tracker, to Best Practical Solutions, LLC, you confirm that
+%# you are the copyright holder for those contributions and you grant
+%# Best Practical Solutions,  LLC a nonexclusive, worldwide, irrevocable,
+%# royalty-free, perpetual, license to use, copy, create derivative
+%# works based on those contributions, and sublicense and distribute
+%# those contributions and any derivatives thereof.
+%#
+%# END BPS TAGGED BLOCK }}}
+<& /Elements/Header, Title => $title,
+    Refresh => $refresh,
+    LinkRel => \%link_rel &>
+<& /Elements/Tabs &>
+
+% $m->callback( ARGSRef => \%ARGS, CallbackName => 'BeforeResults' );
+
+% unless ($ok) {
+%    $msg =~ s{ at .*? line .*}{}s;
+<&| /Widgets/TitleBox, title => loc("Error"), class => "error" &>
+<&|/l_unsafe, "<i>".$m->interp->apply_escapes($msg, "h")."</i>" &>There was an error parsing your search query: [_1].  Your RT admin can find more information in the error logs.</&>
+</&>
+% } else {
+
+<& /Elements/CollectionList, 
+    Query => $Query,
+    TotalFound => $ticketcount,
+    AllowSorting => 1,
+    OrderBy => $OrderBy,
+    Order => $Order,
+    Rows => $Rows,
+    Page => $Page,
+    Format => $Format,
+    Class => 'RT::Tickets',
+    BaseURL => $BaseURL
+
+   &>
+% }
+% $m->callback( ARGSRef => \%ARGS, CallbackName => 'AfterResults' );
+
+% my %hiddens = (Query => $Query, Format => $Format, Rows => $Rows, OrderBy => $OrderBy, Order => $Order, HideResults => $HideResults, Page => $Page, SavedChartSearchId => $SavedChartSearchId );
+<div align="right" class="refresh">
+<form method="get" action="<%RT->Config->Get('WebPath')%>/Search/Results.html">
+% foreach my $key (keys(%hiddens)) {
+<input type="hidden" class="hidden" name="<%$key%>" value="<% defined($hiddens{$key})?$hiddens{$key}:'' %>" />
+% }
+<& /Elements/Refresh, Name => 'TicketsRefreshInterval', Default => $session{'tickets_refresh_interval'}||RT->Config->Get('SearchResultsRefreshInterval', $session{'CurrentUser'}) &>
+<input type="submit" class="button" value="<&|/l&>Change</&>" />
+</form>
+</div>
+<%INIT>
+$m->callback( ARGSRef => \%ARGS, CallbackName => 'Initial' );
+
+# Read from user preferences
+my $prefs = $session{'CurrentUser'}->UserObj->Preferences("SearchDisplay") || {};
+
+# These variables are what define a search_hash; this is also
+# where we give sane defaults.
+$Format      ||= $prefs->{'Format'} || RT->Config->Get('DefaultSearchResultFormat');
+$Order       ||= $prefs->{'Order'} || 'ASC';
+$OrderBy     ||= $prefs->{'OrderBy'} || 'id';
+
+# Some forms pass in "RowsPerPage" rather than "Rows"
+# We call it RowsPerPage everywhere else.
+
+if ( !defined($Rows) ) {
+    if (defined $ARGS{'RowsPerPage'} ) {
+        $Rows = $ARGS{'RowsPerPage'};
+    } elsif ( defined $prefs->{'RowsPerPage'} ) {
+        $Rows = $prefs->{'RowsPerPage'};
+    } else {
+        $Rows = 50;
+    }
+}
+$Page = 1 unless $Page && $Page > 0;
+
+my ($title, $ticketcount);
+$session{'i'}++;
+$session{'tickets'} = RT::Tickets->new($session{'CurrentUser'}) ;
+my ($ok, $msg) = $Query ? $session{'tickets'}->FromSQL($Query) : (1, "Vacuously OK");
+# Provide an empty search if parsing failed
+$session{'tickets'}->FromSQL("id < 0") unless ($ok);
+
+if ($OrderBy =~ /\|/) {
+    # Multiple Sorts
+    my @OrderBy = split /\|/,$OrderBy;
+    my @Order = split /\|/,$Order;
+    $session{'tickets'}->OrderByCols(
+        map { { FIELD => $OrderBy[$_], ORDER => $Order[$_] } } ( 0
+        .. $#OrderBy ) );; 
+} else {
+    $session{'tickets'}->OrderBy(FIELD => $OrderBy, ORDER => $Order); 
+}
+$session{'tickets'}->RowsPerPage( $Rows ) if $Rows;
+$session{'tickets'}->GotoPage( $Page - 1 );
+
+$session{'CurrentSearchHash'} = {
+    Format      => $Format,
+    Query       => $Query,
+    Page       => $Page,
+    Order       => $Order,
+    OrderBy     => $OrderBy,
+    RowsPerPage => $Rows
+};
+
+
+if ( $session{'tickets'}->Query()) {
+    $ticketcount = $session{tickets}->CountAll();
+    $title = loc('Found [quant,_1,ticket]', $ticketcount);
+} else {
+    $title = loc("Find tickets");
+}
+
+my $QueryString = "?".$m->comp('/Elements/QueryString',
+                               Query => $Query,
+                               Format => $Format,
+                               Rows => $Rows,
+                               OrderBy => $OrderBy,
+                               Order => $Order,
+                               Page => $Page);
+my $ShortQueryString = "?".$m->comp('/Elements/QueryString', Query => $Query);
+
+if ($ARGS{'TicketsRefreshInterval'}) {
+	$session{'tickets_refresh_interval'} = $ARGS{'TicketsRefreshInterval'};
+}
+
+my $refresh = $session{'tickets_refresh_interval'}
+    || RT->Config->Get('SearchResultsRefreshInterval', $session{'CurrentUser'} );
+
+# Check $m->request_args, not $DECODED_ARGS, to avoid creating a new CSRF token on each refresh
+if (RT->Config->Get('RestrictReferrer') and $refresh and not $m->request_args->{CSRF_Token}) {
+    my $token = RT::Interface::Web::StoreRequestToken( $session{'CurrentSearchHash'} );
+    $m->notes->{RefreshURL} = RT->Config->Get('WebURL')
+        . "Search/Results.html?CSRF_Token="
+            . $token;
+}
+
+my %link_rel;
+my $genpage = sub {
+    return $m->comp(
+        '/Elements/QueryString',
+        Query   => $Query,
+        Format  => $Format,
+        Rows    => $Rows,
+        OrderBy => $OrderBy,
+        Order   => $Order,
+        Page    => shift(@_),
+    );
+};
+
+if ( RT->Config->Get('SearchResultsAutoRedirect') && $ticketcount == 1 &&
+    $session{tickets}->First ) {
+# $ticketcount is not always precise unless $UseSQLForACLChecks is set to true,
+# check $session{tickets}->First here is to make sure the ticket is there.
+    RT::Interface::Web::Redirect( RT->Config->Get('WebURL')
+            ."Ticket/Display.html?id=". $session{tickets}->First->id );
+}
+
+my $BaseURL = RT->Config->Get('WebPath')."/Search/Results.html?";
+$link_rel{first} = $BaseURL . $genpage->(1)         if $Page > 1;
+$link_rel{prev}  = $BaseURL . $genpage->($Page - 1) if $Page > 1;
+$link_rel{next}  = $BaseURL . $genpage->($Page + 1) if ($Page * $Rows) < $ticketcount;
+$link_rel{last}  = $BaseURL . $genpage->(POSIX::ceil($ticketcount/$Rows)) if $Rows and ($Page * $Rows) < $ticketcount;
+</%INIT>
+<%CLEANUP>
+$session{'tickets'}->PrepForSerialization();
+</%CLEANUP>
+<%ARGS>
+$Query => undef
+$Format => undef 
+$HideResults => 0
+$Rows => undef
+$Page => 1
+$OrderBy => undef
+$Order => undef
+$SavedSearchId => undef
+$SavedChartSearchId => undef
+</%ARGS>

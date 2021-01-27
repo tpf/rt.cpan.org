@@ -1,0 +1,7 @@
+<%args>
+$Queues
+</%args>
+<%init>
+my $WatchedQueues = $session{'CurrentUser'}->UserObj->WatchedQueues('AdminCc', 'Cc');
+%$Queues = %$WatchedQueues;
+</%init>

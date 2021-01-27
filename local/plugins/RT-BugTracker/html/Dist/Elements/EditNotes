@@ -1,0 +1,25 @@
+<label class="dist-notes"><% loc('Distribution notes') %> (<% loc('HTML subset allowed') %>):
+<textarea cols="120" rows="20" name="Queue-<% $Queue->id %>-Notes"><% $value %></textarea></label><br />
+<%ARGS>
+$Queue => undef
+</%ARGS>
+<%INIT>
+my $value = $Queue->DistributionNotes;
+</%INIT>
+
+<%METHOD Process>
+<%ARGS>
+$Queue => undef
+</%ARGS>
+<%INIT>
+return () unless exists $ARGS{'Queue-'. $Queue->id .'-Notes'};
+
+my $value = $ARGS{'Queue-'. $Queue->id .'-Notes'};
+$value = $m->comp('/Elements/ScrubHTML', Content => $value );
+
+return () if ($Queue->DistributionNotes || '') eq ($value || '');
+
+my ($status, $msg) = $Queue->SetDistributionNotes( $value );
+return $msg;
+</%INIT>
+</%METHOD>

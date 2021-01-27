@@ -1,0 +1,7 @@
+<%init>
+return unless $m->notes->{NextHash} and $m->notes->{NextPage};
+
+# Resurrect the next page data we're about to pass to the login page via the
+# logout's meta-refresh.
+$session{NextPage}->{ $m->notes->{NextHash} } = $m->notes->{NextPage};
+</%init>

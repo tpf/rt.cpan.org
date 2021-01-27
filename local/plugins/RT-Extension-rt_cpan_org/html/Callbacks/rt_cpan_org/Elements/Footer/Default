@@ -1,0 +1,7 @@
+<p id="sponsors">
+  This service is sponsored and maintained by
+  <a href="http://bestpractical.com">Best Practical Solutions</a> and runs on
+  <a href="http://noc.perl.org">Perl.org</a> infrastructure.
+</p>
+
+<& /Elements/ContactInfo &>

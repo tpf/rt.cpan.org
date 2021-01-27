@@ -1,0 +1,12 @@
+<%INIT>
+  use RT::Authen::Bitcard;
+  my $bc = RT::Authen::Bitcard->Handler;
+  my $return_to = $RT::WebURL . 'index.html';
+  my $login_url = $m->interp->apply_escapes( $bc->login_url( r => $return_to ), 'h' );
+  my $register_url = $m->interp->apply_escapes( $bc->register_url( r => $return_to ), 'h' );
+</%INIT>
+<div style="font-size: 50%">
+<!-- super secret hidden bitcard login url: <% $login_url %> -->
+<p><a href="https://log.perl.org/2018/03/goodbye-bitcard.html"
+      >Where did Bitcard go?</a></p>
+</div>

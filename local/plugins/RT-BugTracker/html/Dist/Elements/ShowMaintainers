@@ -1,0 +1,26 @@
+<h3><% loc('Maintainer(s)') %></h3>
+
+<p>
+% while ( my $maint = shift @maints ) {
+% if ( $URL ) {
+<a href="<% $RT::WebPath %>/<% $URL %><% $maint |u %>"><% $maint %></a>\
+% } else {
+<% $maint %>\
+% }
+% if ( @maints ) { $m->out(', ') }
+% }
+</p>
+
+<%ARGS>
+$Queue
+$URL => 'Dist/ByMaintainer.html?Name='
+</%ARGS>
+<%INIT>
+
+# XXX: implement this as list with CSS
+
+my $admincc = $Queue->AdminCc->UserMembersObj;
+my @maints = map $_->Name, @{$admincc->ItemsArrayRef};
+return unless @maints;
+
+</%INIT>

@@ -1,0 +1,37 @@
+<form action="<% RT->Config->Get('WebPath') %><% $m->request_path %>" method="GET">
+<p>
+<% loc('First letter is') %>
+% for my $letter ("A".."Z") {
+<a href="<% $RT::WebPath %><% $m->request_path %>?Name=<% $letter %>">
+<% $letter eq $Name ? "<strong>$letter</strong>" : $letter |n %>
+</a>
+% }
+ <% loc('or prefix is') %> <input type="text" name="Name" value="<% length($Name) > 1? $Name : '' %>" data-autocomplete="Queues" data-autocomplete-autosubmit=1 />
+</p>
+</form>
+<%ARGS>
+$Name => undef
+</%ARGS>
+<%INIT>
+$Name = '' unless defined $Name;
+</%INIT>
+
+<%METHOD Process>
+<%ARGS>
+$Name => undef
+</%ARGS>
+<%INIT>
+return (undef, loc("Browse Distributions"))
+    unless defined $Name && length $Name;
+
+
+my $queues = RT::Queues->new( $session{CurrentUser} );
+$queues->Limit(
+    FIELD => 'Name',
+    OPERATOR => 'STARTSWITH',
+    VALUE => $Name,
+);
+return ( $queues, loc("Distributions starting with '[_1]'", $Name) );
+</%INIT>
+</%METHOD>
+

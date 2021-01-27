@@ -1,0 +1,10 @@
+<%args>
+$ARGSRef
+</%args>
+<%init>
+if ($ARGSRef->{'Queue'}) {
+    # XXX TODO: we should just be looking up what distribution a
+    # package is in and using the result
+    $ARGSRef->{'Queue'} =~ s/::/-/g;
+}
+</%init>

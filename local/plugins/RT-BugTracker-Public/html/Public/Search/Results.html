@@ -1,0 +1,13 @@
+<& /Elements/Header, Title => loc("Search results") &>
+<& /Elements/Tabs &>
+<& /Elements/CollectionList,
+    Query           => $ARGS{Query},
+    AllowSorting    => 0,
+    OrderBy         => 'id',
+    Order           => 'ASC',
+    Rows            => 50,
+    Page            => ($ARGS{Page} || 1),
+    Format          => RT->Config->Get("DefaultSearchResultFormat"),
+    Class           => 'RT::Tickets',
+    BaseURL         => RT->Config->Get("WebPath") . "/Public/Search/Results.html?"
+    &>

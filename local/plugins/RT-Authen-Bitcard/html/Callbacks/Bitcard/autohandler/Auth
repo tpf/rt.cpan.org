@@ -1,0 +1,83 @@
+<%INIT>
+  # if we aren't processing a bc request, there's nothing to do here,
+  # so bail quickly
+  return unless exists $ARGS{bc_id};
+
+  my $error_cb = sub {
+      my %args = @_;
+      my $qs = $m->comp('/Elements/QueryString', Error => $args{'Error'} );
+      $m->redirect( $RT::WebPath . '/?' . $qs);
+      $m->abort();
+  };
+
+  # flush the current session if user tries to login using bitcard
+  %session = (_session_id => $session{'_session_id'});
+
+  use RT::Authen::Bitcard;
+  my $bc = RT::Authen::Bitcard->Handler;
+
+  # We have to use octets as Authen::Bitcard doesn't support perl strings
+  # to avoid converting back from perl string to octets we use request_args
+  my $user = $bc->verify( scalar $m->request_args );
+
+  # bitcard user verify error.  abort abort abort!
+  unless ( $user ) {
+      $RT::Logger->warning( "Bitcard verify() returned undef: ". $bc->errstr );
+      $error_cb->( Error => $bc->errstr );
+  }
+
+  # upgrade octets returned by Authen::BC into perl strings
+  use Encode ();
+  $user->{ $_ } = Encode::decode_utf8( $user->{ $_ } )
+      foreach grep defined $user->{$_}, keys %$user;
+
+  ### changing the 'defined $user->{'email}' line back to '$user' enables the
+  ### fsck.com #7277 exploit, if you've saved the 'Manage your Bitcard account'
+  ### URL from a previous successful Bitcard login.
+
+  my $required = RT::Authen::Bitcard->RequiredFields;
+  if ( grep !defined $user->{$_}, @$required  ) {
+      $RT::Logger->error(
+        "Bitcard server didn't provided ". join(", ", @$required)
+        .", but signature is correct"
+      );
+      $error_cb->(
+        Error => loc("Couldn't login using Bitcard. Contact system administrator")
+      );
+  }
+
+  # Bitcard has verified that the user has control of this e-mail address,
+  # so it's okay to use it to get a valid RT user
+
+  # we've got a valid user, so try to load
+  my $cu = new RT::CurrentUser;
+  $cu->LoadByEmail( $user->{'email'} );
+  if ( $cu->id ) {
+      # set a global user so we know elsewhere we're using Bitcard for auth
+      RT::Interface::Web::InstantiateNewSession();
+      $session{'BitcardUser'} = $user;
+      $session{'CurrentUser'} = $cu;
+      return;
+  }
+
+  my ($user_obj, $msg) = RT::Authen::Bitcard->CreateUser(
+      BitcardUser => $user,
+  );
+  unless ( $user_obj ) {
+      $error_cb->( Error => loc("Cannot create user: [_1]", $msg) );
+  }
+
+  # created the user, now load them as the current user
+  $cu->Load( $user_obj->id );
+
+  # set a global user so we know elsewhere we're using Bitcard for auth
+  RT::Interface::Web::InstantiateNewSession();
+  $session{'BitcardUser'} = $user;
+  $session{'CurrentUser'} = $cu;
+
+  $m->comp('/Elements/Callback', %ARGS, _CallbackName => 'NewUser');
+
+  # redirect the user to their preference page to add more info
+  $m->redirect( $RT::WebPath . '/User/Prefs.html' );
+  $m->abort;
+</%INIT>

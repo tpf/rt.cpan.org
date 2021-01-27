@@ -1,0 +1,91 @@
+% if ( $ShowRSSLink ) {
+<h3><% loc('Bugs') %> [<a href="<% $RSSFeedURL %>"><% loc('RSS') %></a>]</h3>
+% } else {
+<h3><% loc('Bugs') %></h3>
+% }
+
+<& /Elements/TicketList,
+    Query   => $Query,
+    Format  => $Format,
+    OrderBy => $OrderBy,
+    Order   => $Order,
+    Rows    => $Rows,
+    Page    => $Page,
+    AllowSorting => 1,
+    BaseURL => $BaseURL,
+&>
+
+<%INIT>
+unless ( ($Status||'') eq 'Active' || $Queue->IsValidStatus( lc $Status ) ) {
+    $m->comp('/Elements/Error', Why => q{no such status as '} . $Status . q{'});
+    $m->abort();
+}
+
+my $Query = "Queue = '". $Queue->Name ."'";
+if ( $Status eq 'Active' ) {
+    $Query .= " AND ( "
+        .join( ' OR ', map "Status = '$_'", $Queue->ActiveStatusArray )
+        ." )";
+}
+else {
+    $Query .= " AND Status = '$Status'";
+}
+
+my $RSSFeedURL = $m->comp('SELF:RSS', Query => $Query );
+
+$Format ||= <<EOF;
+'<a href="$RT::WebPath/Ticket/Display.html?id=__id__">__id__</a>/TITLE:ID',
+'<b><a href="$RT::WebPath/Ticket/Display.html?id=__id__">__Subject__</a></b>/TITLE:Subject',
+'__Status__',
+'__CustomField.{Severity}__',
+'<small>__LastUpdatedRelative__</small>',
+'__CustomField.{Broken in}__',
+'__CustomField.{Fixed in}__'
+EOF
+</%INIT>
+<%ARGS>
+# object
+$Queue
+$Status
+$ShowRSSLink => 1
+
+$Format  => undef
+$OrderBy => 'LastUpdated'
+$Order   => 'DESC'
+$Rows    => undef
+$Page    => 1
+$BaseURL => undef
+</%ARGS>
+
+<%METHOD RSS>
+<%ARGS>
+$Queue  => undef
+$Status => undef
+$Query  => undef
+</%ARGS>
+<%INIT>
+
+if ( $Query ) {
+    return "$RT::WebPath/Search/Results.rdf?"
+        . $m->comp('/Elements/QueryString', Query => $Query);
+}
+
+unless ( ($Status||'') eq 'Active' || $Queue->IsValidStatus( lc $Status ) ) {
+    $m->comp('/Elements/Error', Why => q{no such status as '} . $Status . q{'});
+    $m->abort();
+}
+
+$Query = "Queue = '". $Queue->Name ."'";
+if ( $Status eq 'Active' ) {
+    $Query .= " AND ( "
+        .join( ' OR ', map "Status = '$_'", $Queue->ActiveStatusArray )
+        ." )";
+}
+else {
+    $Query .= " AND Status = '$Status'";
+}
+
+return "$RT::WebPath/Search/Results.rdf?"
+    . $m->comp('/Elements/QueryString', Query => $Query);
+</%INIT>
+</%METHOD>

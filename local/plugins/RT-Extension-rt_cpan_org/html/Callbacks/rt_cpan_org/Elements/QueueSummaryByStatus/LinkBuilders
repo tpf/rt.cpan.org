@@ -1,0 +1,19 @@
+<%args>
+$link_all
+$link_status
+</%args>
+<%init>
+$$link_all = sub {
+    my ($queue, $all_statuses) = @_; 
+    return RT->Config->Get("WebPath") . '/Dist/Display.html'
+         . '?Status=Active'
+         . '&Queue=' . $m->interp->apply_escapes($queue->{Name}, 'u');
+};
+
+$$link_status = sub {
+    my ($queue, $status) = @_;
+    return RT->Config->Get("WebPath") . '/Dist/Display.html'
+         . '?Status=' . $m->interp->apply_escapes($status, 'u')
+         . '&Queue='  . $m->interp->apply_escapes($queue->{Name}, 'u');
+};
+</%init>

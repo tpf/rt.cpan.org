@@ -1,0 +1,168 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+eval { require RT; 1 } or do { exit usage() };
+
+RT::LoadConfig();
+RT::Init();
+
+use File::Spec         ();
+use File::Remove       ();
+use IO::Compress::Gzip ();
+use DBI                ();
+use DBD::SQLite        ();
+
+sub usage {
+    print STDERR "\nUsage: perl -I /opt/rt4/local/lib -I/opt/rt4/lib $0 /export/directory\n\n";
+    return 1;
+}
+
+# Takes a parameter of the directory to export the database to
+my $dir = shift @ARGV;
+exit usage() unless $dir;
+unless ( -d $dir ) {
+    die("Export directory '$dir' does not exist");
+}
+unless ( -w $dir ) {
+    die("Export directory '$dir' is not writable");
+}
+
+######################################################################
+# SQLite Code
+
+# Clear the existing sqlite file
+my $sqlite = File::Spec->catfile($dir, 'rtcpan.sqlite');
+if ( -f $sqlite ) {
+    File::Remove::remove($sqlite);
+}
+if ( -f $sqlite ) {
+    die("Failed to remove existing export '$sqlite'");
+}
+
+# Connect and create the table
+my $dbh = DBI->connect("DBI:SQLite:$sqlite");
+unless ( $dbh ) {
+    die("Failed to create new export '$sqlite'");
+}
+$dbh->do(<<'END_SQL');
+CREATE TABLE ticket (
+    id INTEGER NOT NULL PRIMARY KEY,
+    distribution TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    status TEXT NOT NULL,
+    severity TEXT,
+    created TEXT NOT NULL,
+    updated TEXT NOT NULL
+);
+END_SQL
+
+# Run the RT code to fill the table
+$dbh->begin_work;
+fill_tickets();
+$dbh->commit;
+
+# Generate the indexes on the table
+$dbh->do("CREATE INDEX ticket__id       on ticket ( id       )");
+$dbh->do("CREATE INDEX ticket__distribution    on ticket ( distribution    )");
+$dbh->do("CREATE INDEX ticket__subject  on ticket ( subject  )");
+$dbh->do("CREATE INDEX ticket__status   on ticket ( status   )");
+$dbh->do("CREATE INDEX ticket__severity on ticket ( severity )");
+$dbh->do("CREATE INDEX ticket__created  on ticket ( created  )");
+$dbh->do("CREATE INDEX ticket__updated  on ticket ( updated  )");
+$dbh->disconnect;
+
+# Compress to the final form
+my $gz = "$sqlite.gz";
+if ( -f $gz ) {
+    File::Remove::remove($gz);
+}
+if ( -f $gz ) {
+    die("Failed to remove existing '$gz' export");
+}
+unless ( IO::Compress::Gzip::gzip( $sqlite => $gz ) ) {
+    die("Failed to create gzip archive '$gz'");
+}
+
+exit(0);
+
+# Function to insert a single table
+my $count = 0;
+sub insert_ticket {
+    my %col = @_;
+    $col{subject} = '' unless defined $col{subject};
+    $dbh->do("INSERT INTO ticket ( id, distribution, subject, status, severity, created, updated ) VALUES ( ?, ?, ?, ?, ?, ?, ? )", {},
+        $col{id},
+        $col{distribution},
+        $col{subject},
+        $col{status},
+        $col{severity},
+        $col{created},
+        $col{updated},
+    );
+    unless ( ++$count % 100 ) {
+        $dbh->commit;
+        $dbh->begin_work;
+    }
+}
+
+######################################################################
+# RT Code
+
+sub fill_tickets {
+    my $severity = RT::CustomField->new( $RT::SystemUser );
+    $severity->LoadByName( Name => 'Severity' );
+    die "Couldn't load severity custom field" unless $severity->id;
+
+    while ( my $ticket = fetch_next() ) {
+        my $tmp = $severity->ValuesForObject( $ticket )->First;
+        $tmp = lc $tmp->Content if $tmp;
+        # Create a ticket
+        insert_ticket (
+            id           => $ticket->id,
+            distribution => $ticket->QueueObj->Name,
+            subject      => $ticket->Subject,
+            status       => $ticket->Status,
+            severity     => $tmp,
+            created      => $ticket->Created,
+            updated      => $ticket->LastUpdated,
+        );
+    }
+}
+
+use constant PAGE_SIZE => 5000;
+{ my ($tickets, $last_seen);
+sub fetch_next {
+    $tickets ||= default_search( $last_seen );
+
+    my $ticket = $tickets->Next;
+    unless ( $ticket ) {
+        $tickets = default_search( $last_seen );
+        $ticket = $tickets->Next;
+    }
+    $last_seen = $ticket->id if $ticket;
+    return $ticket;
+} }
+
+sub default_search {
+    my $last_seen = shift || 0;
+    my $tickets = RT::Tickets->new( $RT::SystemUser );
+    $tickets->FromSQL("id > $last_seen");
+    my $queues = $tickets->RT::SearchBuilder::Join(
+        FIELD1 => 'Queue',
+        TABLE2 => 'Queues',
+        FIELD2 => 'id',
+    );
+    $tickets->RT::SearchBuilder::Limit(
+        ENTRYAGGREGATOR => 'AND',
+        ALIAS           => $queues,
+        FIELD           => 'Disabled',
+        VALUE           => 0,
+    );
+    $tickets->{joins_are_distinct} = 1;
+    $tickets->OrderBy( FIELD => 'id', ORDER => 'ASC' );
+    $tickets->RowsPerPage( PAGE_SIZE );
+    return $tickets;
+}
+
