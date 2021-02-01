@@ -1,0 +1,16 @@
+# This file must be owned by root and not group-writeable
+MAILTO=
+RT=/home/rtcpan/rt
+RT_CPAN_ORG=/home/rtcpan/rt/local/plugins/RT-Extension-rt_cpan_org
+PERL="/home/rtcpan/perlbrew/perls/rt/bin/perl -I /home/rtcpan/rt/local/lib -I /home/rtcpan/rt/lib"
+
+05     *   *   *   *    rtcpan     $PERL $RT_CPAN_ORG/bin/rt-cpan-bugs-per-dists $RT_CPAN_ORG/html/Public/
+15   */2   *   *   *    rtcpan     /home/rtcpan/perlbrew/perls/rt/bin/cpan2rt update --mirror http://www.cpan.org --home $RT --datadir $RT/var/cpan2rt_data > /dev/null 2>&1
+45   */2   *   *   *    rtcpan     $PERL $RT_CPAN_ORG/bin/rt-cpan-email-addresses > $RT_CPAN_ORG/html/NoAuth/cpan/queue-addresses.new && mv -f $RT_CPAN_ORG/html/NoAuth/cpan/queue-addresses.new $RT_CPAN_ORG/html/NoAuth/cpan/queue-addresses
+30    *    *   *   *    rtcpan     $PERL $RT/sbin/rt-clean-sessions --older 7D --skip-user
+30    04   *   *   *    rtcpan     $PERL $RT_CPAN_ORG/bin/rt-cpan-export-db $RT_CPAN_ORG/html/NoAuth/cpan/
+35    04   *   *   *    rtcpan     $PERL $RT_CPAN_ORG/bin/rt-cpan-user-activity-stats $RT_CPAN_ORG/html/NoAuth/cpan/
+
+7  3 * * *  root    find /var/log/apache_rt/20*/ -type f -mtime +2 | grep -v \.bz2 | xargs bzip2 -9
+12 3 * * *  root    /home/rtcpan/bin/database-backups
+52 3 * * *  root    /home/rtcpan/bin/brackup-database
