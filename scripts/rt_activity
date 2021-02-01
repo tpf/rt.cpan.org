@@ -1,0 +1,39 @@
+#!/home/rtcpan/perlbrew/perls/rt/bin/perl
+use strict;
+use warnings;
+
+BEGIN {
+    use lib qw(/home/rtcpan/rt/local/lib /home/rtcpan/rt/lib);
+    use RT;
+    RT->LoadConfig;
+    RT->Config->Set("LogToScreen" => "error");
+    RT->Init;
+}
+
+my $cmd = shift || '';
+my $rtname = RT->Config->Get('rtname');
+
+my @tables = qw(Tickets Transactions);
+
+if ( $cmd eq "config" ) {
+    print <<END;
+graph_title $rtname activity
+graph_args --base 1000 -l 0
+graph_vlabel created per hour
+graph_period hour
+graph_category RT
+END
+    for (@tables) {
+        print <<END;
+\L$_\E.label $_
+\L$_\E.type DERIVE
+\L$_\E.min 0
+END
+    }
+	exit 0;
+}
+
+for my $table (@tables) {
+    my ($count) = RT->DatabaseHandle->FetchResult("select count(1) from $table");
+    print "\L$table\E.value ", defined $count && $count !~ /\D/ ? $count : 'U', "\n";
+}

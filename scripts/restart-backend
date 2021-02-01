@@ -1,0 +1,26 @@
+#!/bin/bash
+PID=/home/rtcpan/rt/var/server.pid
+STATUS=/home/rtcpan/rt/var/server.status
+
+source /home/rtcpan/perlbrew/etc/bashrc
+
+rm -rf /home/rtcpan/rt/var/mason_data/*
+
+if [[ -e $PID && -e $STATUS && -d "/proc/$(cat $PID)" ]]; then
+    echo "Server running.  Restarting now..."
+    start_server --restart --pid-file $PID --status-file $STATUS
+else
+    echo "Server not running.  Starting now..."
+    start_server \
+        --interval 5 \
+        --port 8080 \
+        --pid-file $PID \
+        --status-file $STATUS -- \
+        plackup -s Starlet \
+            -E deployment \
+            --max-workers 8 \
+            --max-reqs-per-child 1000 \
+            -e 'enable "ReverseProxy"' \
+            /home/rtcpan/rt/sbin/rt-server \
+        >/home/rtcpan/rt/var/log/daemon.log 2>&1 &
+fi

@@ -1,0 +1,78 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use lib qw(/home/rtcpan/rt/local/lib /home/rtcpan/rt/lib);
+
+use RT;
+RT::LoadConfig();
+RT::Init();
+
+die "usage: $0 name-or-email\n" unless @ARGV;
+
+my %limited;
+my $users = RT::Users->new( RT->SystemUser );
+$users->OrderBy( FIELD => 'Created' );
+$users->FindAllRows;
+limit(@ARGV);
+
+my $format = "%-8s %-18s %-24s %-20s %-5s %-9s %-11s\n";
+printf $format, qw(Id Name Email Created Priv Disabled EffectiveId);
+
+my (@display, %seen);
+# Avoid RT::Extension::MergeUsers by calling the superclass
+while (my $user = $users->RT::SearchBuilder::Next) {
+    # Find similar users
+    limit(grep { defined && length } map { $user->$_ } qw(Name EmailAddress));
+
+    my $email = $user->EmailAddress || '';
+    if ($email =~ s/\@cpan\.org$//i) {
+        # Now just the local CPANID part
+        limit($email);
+    }
+    if (my $eid = $user->FirstAttribute('EffectiveId')) {
+        # Find any merged users
+        limit($eid->Content) if $eid->Content;
+    }
+    push @display, $user unless $seen{$user->id}++;
+}
+
+for my $user (sort { $a->id <=> $b->id } @display) {
+    my $eid = $user->FirstAttribute('EffectiveId');
+    printf $format,
+            (map { defined $_ ? $_ : 'NULL' } map { $user->$_ } qw(id Name EmailAddress Created)),
+            $user->Privileged ? 'Y' : 'N',
+            $user->Disabled ? 'Y' : 'N',
+            $eid ? $eid->Content : 'NULL';
+}
+
+sub limit {
+    for (@_) {
+        next if $limited{lc $_};
+        $limited{lc $_}++;
+
+        if (/\D/) {
+            $users->Limit(
+                SUBCLAUSE           => 'search',
+                FIELD               => 'Name',
+                VALUE               => $_,
+                ENTRYAGGREGATOR     => 'OR',
+            );
+            $users->Limit(
+                SUBCLAUSE           => 'search',
+                FIELD               => 'EmailAddress',
+                VALUE               => $_,
+                ENTRYAGGREGATOR     => 'OR'
+            );
+        } else {
+            $users->Limit(
+                SUBCLAUSE           => 'search',
+                FIELD               => 'id',
+                VALUE               => $_,
+                ENTRYAGGREGATOR     => 'OR'
+            );
+        }
+        $users->GotoFirstItem;
+    }
+}
+

@@ -1,0 +1,12 @@
+#!/bin/bash
+MIRROR=http://cpan.pair.com/pub/CPAN/
+DATE=`date +%Y-%m-%d,%H`
+for file in 02packages.details.txt 06perms.txt; do
+    if [ ! -e /tmp/$file-$DATE ]; then
+        echo --- Downloading $file...
+        curl --silent $MIRROR/modules/$file.gz | gunzip > /tmp/$file-$DATE
+    fi
+    echo === $file
+    grep --color -i "$@" /tmp/$file-$DATE
+done
+

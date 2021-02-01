@@ -1,0 +1,57 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use RT -init;
+
+chdir "/home/rtcpan/rt/var/session_data"
+    or die "can't chdir: $!";
+
+unless (-d "migrated") {
+    mkdir "migrated"
+        or die "can't mkdir: $!";
+}
+
+sub remove {
+    my $ret = rename($_[0], "migrated/$_[0]")
+        or warn "can't rename $_[0]: $!";
+    return $ret;
+}
+
+my $dbh = RT->DatabaseHandle->dbh;
+my $sth = $dbh->prepare("INSERT INTO sessions (id, a_session, LastUpdated) VALUES (?, ?, FROM_UNIXTIME(?))")
+    or die "can't prepare insert: ", $dbh->errstr;
+
+my ($moved, $locks, $other) = ([0,0], [0,0], 0);
+
+for (<*>) {
+    if (/^([0-9a-f]{32})$/) {
+        $moved->[0]++;
+
+        my $data = do {
+            open my $fh, '<:raw', $_ or die "can't open $_: $!";
+            local $/;
+            <$fh>
+        };
+
+        # move into db
+        my $ok = $sth->execute($_, $data, (stat)[9] || time);
+
+        if ($ok and $sth->rows == 1) {
+            remove($_) and $moved->[1]++;
+        } else {
+            warn "failed to migrate $_ (rv=", $sth->rows ,")\n";
+            next;
+        }
+    } elsif (/^Apache-Session-([0-9a-f]+)\.lock$/) {
+        $locks->[0]++;
+        remove($_) and $locks->[1]++;
+    } else {
+        warn "Something unknown: $_\n";
+        $other++;
+    }
+}
+
+printf "%10d / %10d sessions moved\n", @$moved;
+printf "%10d / %10d locks deleted\n", @$locks;
+printf "%10d unknown files\n", $other;

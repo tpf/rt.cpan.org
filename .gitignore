@@ -1,0 +1,29 @@
+# caches
+/var
+
+# perl droppings
+.packlist
+perllocal.pod
+
+# editor state/backup files
+*.sw[po]
+*~
+
+# patch(1) droppings
+*.rej
+*.orig
+
+# fastcgi server spew
+nohup.out
+
+# generated via cronjobs
+local/plugins/RT-Extension-rt_cpan_org/html/NoAuth/cpan/rtcpan.sqlite*
+local/plugins/RT-Extension-rt_cpan_org/html/NoAuth/cpan/user-activity-stats.sqlite*
+local/plugins/RT-Extension-rt_cpan_org/html/NoAuth/cpan/queue-addresses
+local/plugins/RT-Extension-rt_cpan_org/html/Public/bugs-per-dist.data*
+
+# Development config
+/etc/Local_Config.pm
+
+# Manpages which have timestamps that change often
+/local/man

@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use lib qw(/home/rtcpan/rt/local/lib /home/rtcpan/rt/lib);
+use RT -init;
+use feature 'say';
+
+my $old_queue = 'CGI.pm';
+my $new_queue = 'CGI';
+
+
+{
+    no warnings 'redefine';
+
+# rt.cpan.org notifies on queue change, squash that
+    *RT::Scrip::IsApplicable = sub {
+            return;
+    };
+    *RT::Scrip::Prepare = sub { 
+            return;
+    };
+
+    # avoid changing LastUpdated and LastUpdatedBy when we run AddCustomFieldValue
+    *RT::Record::_SetLastUpdated = sub { return };
+}
+
+my $tickets = RT::Tickets->new(RT->SystemUser);
+$tickets->FromSQL("Queue = '$old_queue'");
+
+while (my $t = $tickets->Next) {
+    printf "Changing ticket %s from %s to %s\n",$t->Id, $old_queue, $new_queue;
+    say $t->SetQueue($new_queue),"\n";
+}

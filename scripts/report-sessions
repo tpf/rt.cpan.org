@@ -1,0 +1,31 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+chdir "/home/rtcpan/rt/var/session_data"
+    or die "can't chdir: $!";
+
+my ($without_session, $with_lock, $without_lock, $other, $total) = ((0) x 5);
+
+for (<*>) {
+    if (/^Apache-Session-([0-9a-f]+)\.lock$/) {
+        $without_session++ if not -f $1;
+    }
+    elsif (/^([0-9a-f]+)$/) {
+        if (-f "Apache-Session-$1.lock") {
+            $with_lock++;
+        } else {
+            $without_lock++
+        }
+    } else {
+        $other++;
+        warn "Something unknown: $_\n";
+    }
+    $total++;
+}
+
+printf "%10d locks without session\n", $without_session;
+printf "%10d sessions without lock\n", $without_lock;
+printf "%10d sessions with lock\n", $with_lock;
+printf "%10d unknown files\n", $other;
+printf "%10d total\n", $total;
